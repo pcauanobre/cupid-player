@@ -54,7 +54,7 @@ const CACHE_TTL = 25 * 60 * 1000;
 function getYtDlpPath() {
   // Use bundled yt-dlp from node_modules, fall back to system
   try {
-    return require('yt-dlp-exec').raw.ytDlpPath || 'yt-dlp';
+    return require('yt-dlp-exec/src/constants').YOUTUBE_DL_PATH || 'yt-dlp';
   } catch {
     return 'yt-dlp';
   }
