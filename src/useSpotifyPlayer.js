@@ -62,7 +62,9 @@ export default function useSpotifyPlayer(tracks, playMode = 'normal') {
 
     async function loadStream() {
       try {
-        const url = await window.cupid.getStreamUrl(t.title, t.artist);
+        const url = t.videoId
+          ? await window.cupid.getStreamUrlById(t.videoId)
+          : await window.cupid.getStreamUrl(t.title, t.artist);
         if (cancelled) return;
         // setting src triggers loading; an explicit audio.load() would reset it
         audio.src = url;
@@ -94,7 +96,11 @@ export default function useSpotifyPlayer(tracks, playMode = 'normal') {
       const t = tracks[idx];
       if (!t) return;
       prefetched.add(idx);
-      window.cupid.getStreamUrl(t.title, t.artist).catch(() => {});
+      if (t.videoId) {
+        window.cupid.getStreamUrlById(t.videoId).catch(() => {});
+      } else {
+        window.cupid.getStreamUrl(t.title, t.artist).catch(() => {});
+      }
     };
 
     let nextIdx;

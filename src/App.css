@@ -133,7 +133,7 @@
   border-radius: calc(4 / 306 * 100vw);
   padding: calc(6 / 306 * 100vw);
   width: calc(140 / 306 * 100vw);
-  max-height: calc(200 / 306 * 100vw);
+  max-height: calc(260 / 306 * 100vw);
   overflow-y: auto;
   scrollbar-width: none;
   display: flex;
@@ -150,7 +150,74 @@
 
 .settings-theme-row {
   display: flex;
+  flex-wrap: wrap;
   gap: calc(4 / 306 * 100vw);
+}
+
+.settings-dropdown {
+  position: relative;
+}
+
+.settings-dropdown-trigger {
+  width: 100%;
+  font-family: 'Rainyhearts', monospace;
+  font-size: calc(10 / 306 * 100vw);
+  background: var(--color-primary);
+  border: calc(1 / 306 * 100vw) solid var(--color-panel-text);
+  border-radius: calc(2 / 306 * 100vw);
+  color: var(--color-panel-text);
+  padding: calc(3 / 306 * 100vw) calc(6 / 306 * 100vw);
+  cursor: pointer;
+  outline: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+}
+
+.settings-dropdown-trigger:hover {
+  background: var(--color-panel-text);
+  color: var(--color-primary);
+}
+
+.settings-dropdown-chevron {
+  font-size: calc(10 / 306 * 100vw);
+  line-height: 1;
+  margin-left: calc(4 / 306 * 100vw);
+  transition: transform 0.1s ease;
+}
+
+.settings-dropdown.open .settings-dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.settings-dropdown-menu {
+  /* Position is set inline via portal — top/left/width come from JS */
+  background: var(--color-primary);
+  border: calc(1 / 306 * 100vw) solid var(--color-panel-text);
+  border-radius: calc(2 / 306 * 100vw);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow: hidden;
+  box-shadow: 0 calc(2 / 306 * 100vw) calc(6 / 306 * 100vw) rgba(0, 0, 0, 0.4);
+}
+
+.settings-dropdown-item {
+  font-family: 'Rainyhearts', monospace;
+  font-size: calc(10 / 306 * 100vw);
+  background: none;
+  border: none;
+  color: var(--color-panel-text);
+  padding: calc(3 / 306 * 100vw) calc(6 / 306 * 100vw);
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-dropdown-item:hover,
+.settings-dropdown-item.active {
+  background: var(--color-panel-text);
+  color: var(--color-primary);
 }
 
 .settings-theme-btn {
@@ -194,13 +261,18 @@
 }
 
 .settings-playlist-item {
+  width: 100%;
+  height: calc(22 / 306 * 100vw);
+  flex-shrink: 0;
+  box-sizing: border-box;
   font-family: 'Rainyhearts', monospace;
   font-size: calc(12 / 306 * 100vw);
+  line-height: 1;
   background: rgba(255, 255, 255, 0.05);
   border: none;
   border-radius: calc(2 / 306 * 100vw);
   color: var(--color-panel-text);
-  padding: calc(10 / 306 * 100vw) calc(6 / 306 * 100vw);
+  padding: 0 calc(6 / 306 * 100vw);
   cursor: pointer;
   text-align: left;
   display: flex;

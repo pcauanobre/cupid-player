@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './App.css';
 import useAudioPlayer from './useAudioPlayer';
 import useSpotifyPlayer from './useSpotifyPlayer';
@@ -7,6 +8,19 @@ import { login as spotifyLogin, handleCallback, isLoggedIn as isSpotifyLoggedIn,
 import { fetchPlaylistTracks as fetchSpotifyTracks, fetchMyPlaylists as fetchSpotifyPlaylists } from './spotify/api.js';
 import { login as appleLogin, logout as appleLogout, isLoggedIn as isAppleLoggedIn, initMusicKit } from './apple/auth.js';
 import { fetchMyPlaylists as fetchApplePlaylists, fetchPlaylistTracks as fetchAppleTracks } from './apple/api.js';
+import {
+  login as youtubeLogin,
+  logout as youtubeLogout,
+  isLoggedIn as isYouTubeLoggedIn,
+  isConfigured as isYouTubeConfigured,
+  cancelLogin as cancelYouTubeLogin,
+} from './youtube/auth.js';
+import {
+  parsePlaylistUrl as parseYouTubePlaylistUrl,
+  fetchPlaylistByUrl as fetchYouTubePlaylistByUrl,
+  fetchMyPlaylists as fetchYouTubePlaylists,
+  fetchPlaylistTracks as fetchYouTubeTracks,
+} from './youtube/api.js';
 
 import progressBarStars from '../assets/progress_bar_stars.png';
 import star from '../assets/star.png';
@@ -45,6 +59,110 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function SettingsDropdown({ value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [menuRect, setMenuRect] = useState(null);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updateRect = () => {
+      const r = triggerRef.current?.getBoundingClientRect();
+      if (r) setMenuRect({ top: r.bottom, left: r.left, width: r.width });
+    };
+    updateRect();
+
+    const onMouseDown = (e) => {
+      if (!triggerRef.current?.contains(e.target) && !menuRef.current?.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', updateRect);
+    // Close on scroll anywhere — positions become stale fast
+    window.addEventListener('scroll', () => setOpen(false), true);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [open]);
+
+  const current = options.find((o) => o.value === value);
+
+  return (
+    <div className={`settings-dropdown ${open ? 'open' : ''}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="settings-dropdown-trigger"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span>{current?.label ?? value}</span>
+        <span className="settings-dropdown-chevron" aria-hidden="true">▾</span>
+      </button>
+      {open && menuRect && createPortal(
+        <div
+          ref={menuRef}
+          className="settings-dropdown-menu"
+          role="listbox"
+          style={{
+            position: 'fixed',
+            top: `${menuRect.top + 2}px`,
+            left: `${menuRect.left}px`,
+            width: `${menuRect.width}px`,
+          }}
+        >
+          {options.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              role="option"
+              aria-selected={o.value === value}
+              className={`settings-dropdown-item ${o.value === value ? 'active' : ''}`}
+              onClick={() => { onChange(o.value); setOpen(false); }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>,
+        // Portal to .player so CSS custom properties (--color-primary, etc.)
+        // and the theme class still cascade. document.body would orphan them.
+        document.querySelector('.player') ?? document.body,
+      )}
+    </div>
+  );
+}
+
+function PlaylistList({ loading, playlists, loadingPlaylist, onSelect, emptyMessage = 'no playlists found' }) {
+  return (
+    <div className="settings-playlist-list">
+      {loading ? (
+        <div className="settings-label">loading...</div>
+      ) : playlists.length === 0 ? (
+        <div className="settings-label">{emptyMessage}</div>
+      ) : (
+        playlists.map((p) => (
+          <button
+            key={p.id}
+            className={`settings-playlist-item ${loadingPlaylist ? 'disabled' : ''}`}
+            onClick={() => onSelect(p.id)}
+            disabled={loadingPlaylist}
+          >
+            {p.name}
+          </button>
+        ))
+      )}
+    </div>
+  );
+}
+
 function MarqueeText({ className, text }) {
   const outerRef = useRef(null);
   const textRef = useRef(null);
@@ -74,9 +192,13 @@ export default function App() {
   const [source, setSource] = useState('local'); // 'local' | 'streaming'
   const [spotifyConnected, setSpotifyConnected] = useState(isSpotifyLoggedIn());
   const [appleConnected, setAppleConnected] = useState(isAppleLoggedIn());
+  const [youtubeConnected, setYoutubeConnected] = useState(isYouTubeLoggedIn());
+  const [youtubeLoggingIn, setYoutubeLoggingIn] = useState(false);
+  const [youtubeUrlInput, setYoutubeUrlInput] = useState('');
   const [streamTracks, setStreamTracks] = useState([]);
   const [spotifyPlaylists, setSpotifyPlaylists] = useState([]);
   const [applePlaylists, setApplePlaylists] = useState([]);
+  const [youtubePlaylists, setYoutubePlaylists] = useState([]);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
   const [loadingPlaylist, setLoadingPlaylist] = useState(false);
   const [settingsError, setSettingsError] = useState(null);
@@ -144,6 +266,41 @@ export default function App() {
       .finally(() => setLoadingPlaylists(false));
   }, []);
 
+  // ── Fetch YouTube playlists (Data API, requires sign-in) ─
+  const loadYoutubePlaylists = useCallback((silent = false) => {
+    setLoadingPlaylists(true);
+    if (!silent) setSettingsError(null);
+    fetchYouTubePlaylists()
+      .then((p) => { setYoutubePlaylists(p); setSettingsError(null); })
+      .catch((err) => { if (!silent) setSettingsError(err.message); })
+      .finally(() => setLoadingPlaylists(false));
+  }, []);
+
+  // ── Load a playlist from a YouTube URL (no sign-in) ─────
+  const loadYoutubePlaylistFromUrl = useCallback(async (rawInput) => {
+    setSettingsError(null);
+    const parsed = parseYouTubePlaylistUrl(rawInput);
+    if (!parsed) {
+      setSettingsError('Not a recognised YouTube playlist URL');
+      return;
+    }
+    setLoadingPlaylist(true);
+    try {
+      const tracks = await fetchYouTubePlaylistByUrl(rawInput);
+      if (tracks.length === 0) {
+        setSettingsError('Playlist is empty or private');
+        return;
+      }
+      setStreamTracks(tracks);
+      setSource('streaming');
+      setYoutubeUrlInput('');
+    } catch (err) {
+      setSettingsError(err.message);
+    } finally {
+      setLoadingPlaylist(false);
+    }
+  }, []);
+
   // ── Handle Spotify OAuth callback on mount ─────────────
   useEffect(() => {
     async function checkCallback() {
@@ -160,17 +317,22 @@ export default function App() {
       } else {
         if (isSpotifyLoggedIn()) loadSpotifyPlaylists(true);
         if (isAppleLoggedIn()) loadApplePlaylists(true);
+        if (isYouTubeLoggedIn()) loadYoutubePlaylists(true);
       }
     }
     checkCallback();
   }, []);
 
-  // ── Load a playlist by ID (works for both services) ───
+  // ── Load a playlist by ID (works for all services) ────
   const loadPlaylist = useCallback(async (id, service) => {
     setLoadingPlaylist(true);
     setSettingsError(null);
     try {
-      const fetcher = service === 'apple' ? fetchAppleTracks : fetchSpotifyTracks;
+      const fetcher = service === 'apple'
+        ? fetchAppleTracks
+        : service === 'youtube'
+          ? fetchYouTubeTracks
+          : fetchSpotifyTracks;
       const tracks = await fetcher(id);
       if (tracks.length === 0) {
         setSettingsError('Playlist is empty');
@@ -542,26 +704,19 @@ export default function App() {
               </button>
             </div>
             <div className="settings-label">music</div>
-            <div className="settings-theme-row">
-              <button
-                className={`settings-theme-btn ${musicService === 'spotify' ? 'active' : ''}`}
-                onClick={() => setMusicService('spotify')}
-              >
-                spotify
-              </button>
-              <button
-                className={`settings-theme-btn ${musicService === 'apple' ? 'active' : ''}`}
-                onClick={() => setMusicService('apple')}
-              >
-                apple
-              </button>
-              <button
-                className={`settings-theme-btn ${musicService === 'local' ? 'active' : ''}`}
-                onClick={() => { setMusicService('local'); setSource('local'); }}
-              >
-                local
-              </button>
-            </div>
+            <SettingsDropdown
+              value={musicService}
+              options={[
+                { value: 'local', label: 'local' },
+                { value: 'spotify', label: 'spotify' },
+                { value: 'apple', label: 'apple' },
+                { value: 'youtube', label: 'youtube' },
+              ]}
+              onChange={(next) => {
+                setMusicService(next);
+                if (next === 'local') setSource('local');
+              }}
+            />
 
             {musicService === 'local' && (
               <button
@@ -579,23 +734,20 @@ export default function App() {
                 </button>
               ) : (
                 <>
-                  <div className="settings-playlist-list">
-                    {loadingPlaylists ? (
-                      <div className="settings-label">loading...</div>
-                    ) : (
-                      spotifyPlaylists.map((p) => (
-                        <button
-                          key={p.id}
-                          className={`settings-playlist-item ${loadingPlaylist ? 'disabled' : ''}`}
-                          onClick={() => loadPlaylist(p.id, 'spotify')}
-                          disabled={loadingPlaylist}
-                        >
-                          {p.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
+                  <PlaylistList
+                    loading={loadingPlaylists}
+                    playlists={spotifyPlaylists}
+                    loadingPlaylist={loadingPlaylist}
+                    onSelect={(id) => loadPlaylist(id, 'spotify')}
+                  />
                   <div className="settings-theme-row">
+                    <button
+                      className={`settings-theme-btn ${loadingPlaylists ? 'disabled' : ''}`}
+                      disabled={loadingPlaylists}
+                      onClick={() => loadSpotifyPlaylists()}
+                    >
+                      refresh
+                    </button>
                     <button className="settings-theme-btn" onClick={() => {
                       spotifyLogout();
                       setSpotifyConnected(false);
@@ -624,19 +776,20 @@ export default function App() {
                 </button>
               ) : (
                 <>
-                  <div className="settings-playlist-list">
-                    {applePlaylists.map((p) => (
-                      <button
-                        key={p.id}
-                        className={`settings-playlist-item ${loadingPlaylist ? 'disabled' : ''}`}
-                        onClick={() => loadPlaylist(p.id, 'apple')}
-                        disabled={loadingPlaylist}
-                      >
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
+                  <PlaylistList
+                    loading={loadingPlaylists}
+                    playlists={applePlaylists}
+                    loadingPlaylist={loadingPlaylist}
+                    onSelect={(id) => loadPlaylist(id, 'apple')}
+                  />
                   <div className="settings-theme-row">
+                    <button
+                      className={`settings-theme-btn ${loadingPlaylists ? 'disabled' : ''}`}
+                      disabled={loadingPlaylists}
+                      onClick={() => loadApplePlaylists()}
+                    >
+                      refresh
+                    </button>
                     <button className="settings-theme-btn" onClick={() => {
                       appleLogout();
                       setAppleConnected(false);
@@ -646,6 +799,81 @@ export default function App() {
                       logout
                     </button>
                   </div>
+                </>
+              )
+            )}
+
+            {musicService === 'youtube' && (
+              isYouTubeConfigured() ? (
+                !youtubeConnected ? (
+                  <button
+                    className={`settings-theme-btn ${youtubeLoggingIn ? 'disabled' : ''}`}
+                    disabled={youtubeLoggingIn}
+                    onClick={async () => {
+                      setYoutubeLoggingIn(true);
+                      setSettingsError(null);
+                      try {
+                        await youtubeLogin();
+                        setYoutubeConnected(true);
+                        loadYoutubePlaylists();
+                      } catch (err) {
+                        setSettingsError(err.message);
+                      } finally {
+                        setYoutubeLoggingIn(false);
+                      }
+                    }}
+                  >
+                    {youtubeLoggingIn ? 'waiting for browser...' : 'log in with google'}
+                  </button>
+                ) : (
+                  <>
+                    <PlaylistList
+                      loading={loadingPlaylists}
+                      playlists={youtubePlaylists}
+                      loadingPlaylist={loadingPlaylist}
+                      onSelect={(id) => loadPlaylist(id, 'youtube')}
+                    />
+                    <div className="settings-theme-row">
+                      <button
+                        className={`settings-theme-btn ${loadingPlaylists ? 'disabled' : ''}`}
+                        disabled={loadingPlaylists}
+                        onClick={() => loadYoutubePlaylists()}
+                      >
+                        refresh
+                      </button>
+                      <button className="settings-theme-btn" onClick={() => {
+                        youtubeLogout();
+                        setYoutubeConnected(false);
+                        setYoutubePlaylists([]);
+                        if (source === 'streaming') setSource('local');
+                      }}>
+                        logout
+                      </button>
+                    </div>
+                  </>
+                )
+              ) : (
+                <>
+                  <input
+                    className="settings-input"
+                    type="text"
+                    placeholder="paste a youtube playlist link"
+                    value={youtubeUrlInput}
+                    onChange={(e) => setYoutubeUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && youtubeUrlInput.trim()) {
+                        loadYoutubePlaylistFromUrl(youtubeUrlInput.trim());
+                      }
+                    }}
+                    disabled={loadingPlaylist}
+                  />
+                  <button
+                    className={`settings-theme-btn ${loadingPlaylist || !youtubeUrlInput.trim() ? 'disabled' : ''}`}
+                    onClick={() => loadYoutubePlaylistFromUrl(youtubeUrlInput.trim())}
+                    disabled={loadingPlaylist || !youtubeUrlInput.trim()}
+                  >
+                    {loadingPlaylist ? 'loading...' : 'load playlist'}
+                  </button>
                 </>
               )
             )}

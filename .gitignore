@@ -6,6 +6,7 @@ dist/
 dist-electron/
 out/
 .vite/
+bin/
 
 .DS_Store
 Thumbs.db

@@ -11,6 +11,7 @@ A pixel-art desktop music player built with Electron, Vite, and React.
 - Pink and blue theme switching with persistent preference
 - Spotify integration — browse your playlists and play tracks via yt-dlp
 - Apple Music integration — browse your library playlists via MusicKit JS
+- YouTube playlists — paste any public playlist URL (no sign-in) or sign in with Google to browse your own
 - Local MP3 playback
 - Custom frameless window with drag and resize
 - Dynamic dock/taskbar icon that matches the active theme
@@ -18,9 +19,11 @@ A pixel-art desktop music player built with Electron, Vite, and React.
 ## Getting Started
 
 ```bash
-npm install
+npm install   # also auto-downloads the yt-dlp binary for your OS into ./bin
 npm run dev
 ```
+
+Requires Node.js 18+. No Python install needed — the postinstall script fetches the standalone yt-dlp binary that powers streaming.
 
 ## Adding Local Audio Files
 
@@ -82,6 +85,28 @@ Browse your Apple Music library playlists. Requires an Apple Developer account. 
 
 See [APPLE_MUSIC_SETUP.md](APPLE_MUSIC_SETUP.md) for detailed instructions and troubleshooting.
 
+## YouTube Setup
+
+Two flows — pick whichever you want by configuring (or not) your `.env`. **No YouTube Premium / no subscription required** in either case.
+
+**Paste any public playlist URL** (zero setup):
+
+1. Click the settings icon in the player > switch to youtube
+2. Paste a YouTube/YouTube Music playlist URL into the box
+3. Hit `load playlist`
+
+**Browse your own playlists** (requires Google OAuth setup):
+
+1. Create a Google Cloud project at [console.cloud.google.com](https://console.cloud.google.com/), enable **YouTube Data API v3**
+2. Configure the OAuth consent screen (External, add yourself as a test user, scope `youtube.readonly`)
+3. Create OAuth credentials of type **Desktop app**
+4. Add `VITE_YOUTUBE_CLIENT_ID` and `VITE_YOUTUBE_CLIENT_SECRET` to your `.env`
+5. Click the settings icon > switch to youtube > log in with google
+
+The sign-in option only appears when `VITE_YOUTUBE_CLIENT_ID` is set; otherwise the URL-paste box shows instead.
+
+See [YOUTUBE_SETUP.md](YOUTUBE_SETUP.md) for detailed instructions and troubleshooting.
+
 ## Build
 
 ```bash
@@ -107,9 +132,10 @@ cp -r "out/mac-arm64/Cupid Player.app" /Applications/
 - **Vite** — build tool and dev server
 - **React** — UI framework
 - **HTML5 Audio** — local MP3 playback
-- **yt-dlp** — YouTube audio streaming for Spotify/Apple Music tracks
+- **yt-dlp** — YouTube audio streaming for Spotify/Apple/YouTube tracks; also fetches public YouTube playlist contents via `--flat-playlist`
 - **Spotify Web API** — playlist and metadata fetching (OAuth PKCE)
 - **Apple MusicKit JS** — library playlist access (JWT auth)
+- **YouTube Data API v3** — sign-in browsing of the user's own playlists (Google OAuth PKCE, free quota)
 - **CSS** — custom properties for theming, calc-based responsive scaling
 - **Node.js** — main process (JWT generation, yt-dlp execution)
 - **jsonwebtoken** — Apple Music developer token generation

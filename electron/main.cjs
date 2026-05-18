@@ -5,6 +5,7 @@ const { promisify } = require('node:util');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { Readable } = require('node:stream');
+const http = require('node:http');
 
 const fs = require('node:fs');
 const jwt = require('jsonwebtoken');
@@ -94,12 +95,41 @@ function persistVideoIdCache() {
   }, 500);
 }
 
+// yt-dlp resolution order:
+//   1. Standalone binary downloaded by scripts/install-yt-dlp.cjs into ./bin —
+//      single-file native binary, no Python dependency.
+//   2. In packaged builds, the same binary shipped via extraResources.
+//   3. Last resort: `yt-dlp` on $PATH (lets advanced users override).
+//
+// We intentionally don't fall back to yt-dlp-exec's bundled Python zipapp:
+// it breaks on systems whose default python3 is < 3.10 (e.g. macOS w/ Xcode's
+// Python 3.9), and the standalone binary is the supported path.
+let cachedYtDlpPath = null;
 function getYtDlpPath() {
-  try {
-    return require('yt-dlp-exec/src/constants').YOUTUBE_DL_PATH || 'yt-dlp';
-  } catch {
-    return 'yt-dlp';
+  if (cachedYtDlpPath) return cachedYtDlpPath;
+
+  const binName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+
+  const candidates = [
+    // Dev / cloned-from-source: scripts/install-yt-dlp.cjs drops it here
+    path.join(__dirname, '..', 'bin', binName),
+    // Packaged app: extraResources places it under resourcesPath/bin/
+    path.join(process.resourcesPath || '', 'bin', binName),
+  ];
+
+  for (const p of candidates) {
+    try {
+      if (fs.statSync(p).isFile()) {
+        cachedYtDlpPath = p;
+        return p;
+      }
+    } catch {}
   }
+
+  // Fall back to whatever `yt-dlp` (or `yt-dlp.exe`) resolves to on $PATH —
+  // execFile on Windows needs the explicit extension.
+  cachedYtDlpPath = binName;
+  return cachedYtDlpPath;
 }
 
 const YT_ID_RE = /^[A-Za-z0-9_-]{11}$/;
@@ -230,6 +260,37 @@ async function getStreamUrl(title, artist) {
 
   pendingRequests.set(cacheKey, promise);
   return promise;
+}
+
+// Direct cupid-audio URL for a known YouTube video ID — skips the search step
+// used by Spotify/Apple. Best-effort pre-warms the decipher cache.
+function streamUrlForVideoId(videoId) {
+  if (!YT_ID_RE.test(videoId)) throw new Error('Invalid YouTube video ID');
+  resolveStreamUrl(videoId).catch(() => {});
+  return `cupid-audio://stream?id=${encodeURIComponent(videoId)}`;
+}
+
+// Fetch a public/unlisted YouTube playlist via yt-dlp --flat-playlist.
+// Returns an array of { videoId, title, artist, duration } — no API key
+// or sign-in required.
+async function fetchYouTubePlaylistViaYtDlp(url) {
+  const { stdout } = await execFileAsync(getYtDlpPath(), [
+    url,
+    '--flat-playlist',
+    '--dump-single-json',
+    '--no-warnings',
+  ], { timeout: 30000, maxBuffer: 50 * 1024 * 1024 });
+
+  const data = JSON.parse(stdout);
+  const entries = data.entries || [];
+  return entries
+    .filter((e) => e && e.id && YT_ID_RE.test(e.id))
+    .map((e) => ({
+      videoId: e.id,
+      title: e.title || e.id,
+      artist: e.uploader || e.channel || '',
+      duration: typeof e.duration === 'number' ? e.duration : null,
+    }));
 }
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -505,6 +566,114 @@ ipcMain.handle('open-music-folder', async () => {
   await fs.promises.mkdir(dir, { recursive: true });
   await shell.openPath(dir);
   return dir;
+});
+
+ipcMain.handle('get-stream-url-by-id', (_e, videoId) => {
+  return streamUrlForVideoId(videoId);
+});
+
+ipcMain.handle('youtube-fetch-playlist', async (_e, url) => {
+  try {
+    return await fetchYouTubePlaylistViaYtDlp(url);
+  } catch (err) {
+    throw new Error(`yt-dlp playlist fetch failed: ${err.message}`);
+  }
+});
+
+// ── Google OAuth loopback ─────────────────────────────────
+// Google's auth servers refuse to render inside Electron's BrowserWindow
+// (embedded-webview policy), so we open the system browser and run a tiny
+// local HTTP server to capture the redirect. Returns the auth code synchronously
+// after the user completes the flow in their browser.
+let activeOauthServer = null;
+
+ipcMain.handle('youtube-oauth-start', async (_e, { clientId, scope, state, codeChallenge }) => {
+  // Tear down any previous attempt
+  if (activeOauthServer) {
+    try { activeOauthServer.close(); } catch {}
+    activeOauthServer = null;
+  }
+
+  const { port, server, codePromise } = await new Promise((resolve, reject) => {
+    let resolveCode, rejectCode;
+    const codePromise = new Promise((r1, r2) => { resolveCode = r1; rejectCode = r2; });
+
+    const srv = http.createServer((req, res) => {
+      const u = new URL(req.url, 'http://127.0.0.1');
+      if (u.pathname !== '/youtube-callback') {
+        res.writeHead(404); res.end('not found');
+        return;
+      }
+      const code = u.searchParams.get('code');
+      const returnedState = u.searchParams.get('state');
+      const error = u.searchParams.get('error');
+
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      if (error) {
+        res.end(`<!doctype html><meta charset=utf-8><title>cupid player</title><style>body{font-family:system-ui;background:#1a1a1a;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style><div>Auth failed: ${error}. You can close this window.</div>`);
+        rejectCode(new Error(error));
+      } else if (!code) {
+        res.end('<!doctype html><meta charset=utf-8><div>Missing code. You can close this window.</div>');
+        rejectCode(new Error('No code in callback'));
+      } else if (returnedState !== state) {
+        res.end('<!doctype html><meta charset=utf-8><div>State mismatch. You can close this window.</div>');
+        rejectCode(new Error('OAuth state mismatch'));
+      } else {
+        res.end('<!doctype html><meta charset=utf-8><title>cupid player</title><style>body{font-family:system-ui;background:#1a1a1a;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style><div>✓ Signed in — you can close this window and return to Cupid Player.</div>');
+        resolveCode(code);
+      }
+
+      // Close the server shortly after handling — single-shot
+      setTimeout(() => { try { srv.close(); } catch {} }, 500);
+    });
+
+    srv.on('error', reject);
+    srv.listen(0, '127.0.0.1', () => {
+      resolve({ port: srv.address().port, server: srv, codePromise });
+    });
+  });
+
+  activeOauthServer = server;
+
+  const redirectUri = `http://127.0.0.1:${port}/youtube-callback`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: redirectUri,
+    scope,
+    state,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+    access_type: 'offline',
+    prompt: 'consent',
+  });
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+
+  // Open in the user's default browser — Google refuses embedded webviews
+  shell.openExternal(authUrl);
+
+  // Auto-timeout after 5 minutes so we don't leak the server forever
+  const timeout = setTimeout(() => {
+    try { server.close(); } catch {}
+  }, 5 * 60 * 1000);
+
+  try {
+    const code = await codePromise;
+    clearTimeout(timeout);
+    activeOauthServer = null;
+    return { code, redirectUri };
+  } catch (err) {
+    clearTimeout(timeout);
+    activeOauthServer = null;
+    throw err;
+  }
+});
+
+ipcMain.handle('youtube-oauth-cancel', () => {
+  if (activeOauthServer) {
+    try { activeOauthServer.close(); } catch {}
+    activeOauthServer = null;
+  }
 });
 
 app.whenReady().then(() => {

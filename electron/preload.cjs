@@ -9,8 +9,12 @@ contextBridge.exposeInMainWorld('cupid', {
   openExternal: (url) => ipcRenderer.send('open-external', url),
   setTheme: (theme) => ipcRenderer.send('set-theme', theme),
   getStreamUrl: (title, artist) => ipcRenderer.invoke('get-stream-url', title, artist),
+  getStreamUrlById: (videoId) => ipcRenderer.invoke('get-stream-url-by-id', videoId),
   getAppleMusicToken: () => ipcRenderer.invoke('get-apple-music-token'),
   getLocalPlaylist: () => ipcRenderer.invoke('get-local-playlist'),
   getLocalAudioPath: (filename) => ipcRenderer.invoke('get-local-audio-path', filename),
   openMusicFolder: () => ipcRenderer.invoke('open-music-folder'),
+  youtubeFetchPlaylist: (url) => ipcRenderer.invoke('youtube-fetch-playlist', url),
+  youtubeOauthStart: (opts) => ipcRenderer.invoke('youtube-oauth-start', opts),
+  youtubeOauthCancel: () => ipcRenderer.invoke('youtube-oauth-cancel'),
 });
