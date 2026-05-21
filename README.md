@@ -17,13 +17,46 @@ A pixel-art desktop music player built with Electron, Vite, and React.
 - Dynamic dock/taskbar icon that matches the active theme
 
 ## Getting Started
+You only need 4 commands. Copy them one at a time:
 
 ```bash
-npm install   # also auto-downloads the yt-dlp binary for your OS into ./bin
+# 1. Download the code
+git clone https://github.com/cupidbity/cupid-music-player.git
+
+# 2. Step INTO the folder you just downloaded (this step is required!)
+cd cupid-music-player
+
+# 3. Install dependencies (also auto-downloads the yt-dlp binary into ./bin)
+npm install
+
+# 4. Run the app in dev mode
 npm run dev
 ```
 
-Requires Node.js 18+. No Python install needed — the postinstall script fetches the standalone yt-dlp binary that powers streaming.
+
+### Prerequisites
+
+Before the commands above will work, you need these installed:
+
+| Tool | Why | Install link |
+|------|-----|--------------|
+| **Node.js 18 or newer** | Runs `npm` and the app's build tools | [nodejs.org](https://nodejs.org/) — download the LTS version |
+| **Git** | Used by the `git clone` command above | [git-scm.com](https://git-scm.com/downloads) — usually pre-installed on macOS/Linux |
+
+To check if you already have them, run:
+
+```bash
+node --version    # should print v18.x.x or higher
+npm --version     # should print 9.x or higher
+git --version     # should print git version 2.x.x
+```
+
+If any of those says "command not found," install that tool first.
+
+> No Python is needed. The `npm install` step automatically downloads a standalone `yt-dlp` binary for your OS into the project's `bin/` folder.
+
+---
+
 
 ## Adding Local Audio Files
 
