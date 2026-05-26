@@ -53,22 +53,58 @@ type Optimistic = {
 };
 
 export default function UserPage() {
-  const { state, ready } = useRoomState();
+  const { state, ready, refresh } = useRoomState();
   const { send } = useRoomCommands('user');
   const search = useSearch(send);
   const [showGallery, setShowGallery] = useState(false);
   const { settings } = useSettings();
   const router = useRouter();
-  // Heartbeat-based presence: admin's iframe pings state.updatedAt every
-  // ~2s while it's running. If we haven't seen one in 10s, treat admin
-  // as offline and gate the player behind the waiting overlay.
-  const [now, setNow] = useState(() => Date.now());
+
+  // Admin presence: any fresh heartbeat flips us to "online" and we stay
+  // that way until the next 5-minute verification. If by then there's no
+  // recent heartbeat (>30s old) we go back to the waiting overlay.
+  const [isAdminOnline, setIsAdminOnline] = useState(false);
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 3000);
+    if (state.updatedAt > 0 && Date.now() - state.updatedAt < 30_000) {
+      setIsAdminOnline(true);
+    }
+  }, [state.updatedAt]);
+  useEffect(() => {
+    const t = setInterval(() => {
+      const online = state.updatedAt > 0 && Date.now() - state.updatedAt < 30_000;
+      setIsAdminOnline(online);
+    }, 5 * 60 * 1000);
     return () => clearInterval(t);
-  }, []);
-  const adminOnline = state.updatedAt > 0 && (now - state.updatedAt) < 10_000;
-  const waitingForAdmin = ready && (!adminOnline || state.queue.length === 0);
+  }, [state.updatedAt]);
+
+  // Safety net: re-pull /api/state every minute if our local state has
+  // gone stale, in case a Pusher delivery slipped.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (state.updatedAt > 0 && Date.now() - state.updatedAt > 60_000) {
+        refresh();
+      }
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [state.updatedAt, refresh]);
+
+  // Whenever the tab regains focus or visibility, fetch fresh state so
+  // anything the admin did while we were backgrounded shows up.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('pageshow', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('pageshow', refresh);
+    };
+  }, [refresh]);
+
+  const waitingForAdmin = ready && (!isAdminOnline || state.queue.length === 0);
 
   const goAdmin = useCallback(() => router.push('/admin'), [router]);
   const titleTap = useTapSequence(goAdmin);
