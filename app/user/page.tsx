@@ -107,6 +107,23 @@ export default function UserPage() {
   const effCurrentTime = optimistic.currentTime ?? state.currentTime;
   const effVolume = optimistic.volume ?? state.volume ?? 0.8;
 
+  // Debounce track navigation. Rapid next/prev/skip-to clicks only
+  // dispatch ONE absolute `trackChanged` command, with the final index,
+  // 320 ms after the user stops clicking — keeps the admin iframe from
+  // chasing 5 sequential loadVideoById calls.
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navTargetRef = useRef<number | null>(null);
+  const scheduleNav = useCallback((idx: number) => {
+    navTargetRef.current = idx;
+    if (navTimerRef.current) clearTimeout(navTimerRef.current);
+    navTimerRef.current = setTimeout(() => {
+      const target = navTargetRef.current;
+      navTimerRef.current = null;
+      navTargetRef.current = null;
+      if (target !== null) send({ type: 'trackChanged', index: target });
+    }, 320);
+  }, [send]);
+
   const player: PlayerController = useMemo(() => {
     const track = state.queue[effIndex] ?? PLACEHOLDER_TRACK;
     const progress = state.duration > 0 ? Math.max(0, Math.min(1, effCurrentTime / state.duration)) : 0;
@@ -128,13 +145,13 @@ export default function UserPage() {
         if (state.queue.length === 0) return;
         const nextIdx = (effIndex + 1) % state.queue.length;
         setOpt({ index: nextIdx, currentTime: 0 });
-        send({ type: 'skip' });
+        scheduleNav(nextIdx);
       },
       prev: () => {
         if (state.queue.length === 0) return;
         const nextIdx = (effIndex - 1 + state.queue.length) % state.queue.length;
         setOpt({ index: nextIdx, currentTime: 0 });
-        send({ type: 'prev' });
+        scheduleNav(nextIdx);
       },
       seek: (f) => {
         if (state.duration > 0) setOpt({ currentTime: f * state.duration });
@@ -210,7 +227,7 @@ export default function UserPage() {
               canModify
               onSkipTo={(i) => {
                 setOpt({ index: i, currentTime: 0 });
-                send({ type: 'trackChanged', index: i });
+                scheduleNav(i);
               }}
               onRemove={(i) => send({ type: 'remove', index: i })}
               onReorder={(from, to) => send({ type: 'reorder', from, to })}
