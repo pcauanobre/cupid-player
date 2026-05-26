@@ -85,8 +85,10 @@ export default function useYouTubeIframePlayer({
             const s = e.data;
             if (s === YT.PlayerState.PLAYING) {
               setIsPlaying(true);
+              sendCommand({ type: 'playpause', isPlaying: true });
             } else if (s === YT.PlayerState.PAUSED) {
               setIsPlaying(false);
+              sendCommand({ type: 'playpause', isPlaying: false });
             } else if (s === YT.PlayerState.ENDED) {
               setIsPlaying(false);
               const cur = stateRef.current;

@@ -131,10 +131,13 @@ export function applyCommand(state: RoomState, cmd: ClientCommand, actorUserId?:
       return wrap(bumpMeta({ currentTime }), state.queue, false);
     }
     case 'tick': {
+      // Tick is poll-based and races with user-issued playpause commands.
+      // Keep state.isPlaying as the authoritative value (it's flipped via
+      // `playpause` only). Tick just refreshes the timeline.
       const meta: RoomMeta = {
         adminUserId: state.adminUserId,
         index: state.index,
-        isPlaying: cmd.isPlaying,
+        isPlaying: state.isPlaying,
         currentTime: cmd.currentTime,
         duration: cmd.duration,
         updatedAt: now,
