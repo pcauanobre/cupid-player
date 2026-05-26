@@ -8,14 +8,12 @@ import { makeCollage } from '@/lib/collage';
 export default function PhotoGallery({
   open,
   onClose,
-  skipWelcome = false,
 }: {
   open: boolean;
   onClose: () => void;
-  skipWelcome?: boolean;
 }) {
   const { urls, save, clear } = useGallery();
-  const { settings, update } = useSettings();
+  const { settings } = useSettings();
   const slotCount = Math.max(1, Math.min(30, settings.slotCount));
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [welcomeStep, setWelcomeStep] = useState<number>(-1); // 0..2 show welcome, -1 = sheet
@@ -32,11 +30,11 @@ export default function PhotoGallery({
   ];
   const totalSteps = steps.length;
 
-  // On open: show welcome only if user hasn't been welcomed yet.
-  // Admin is forced to skip — they only see the gallery grid.
+  // Welcome always shows each time the gallery opens — the 3 phrases are
+  // part of the /user experience by design.
   useEffect(() => {
-    if (open) setWelcomeStep(skipWelcome || settings.welcomed ? -1 : 0);
-  }, [open, settings.welcomed, skipWelcome]);
+    if (open) setWelcomeStep(0);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -140,7 +138,7 @@ export default function PhotoGallery({
           className="welcome-overlay"
           onClick={() => {
             if (welcomeStep < totalSteps - 1) setWelcomeStep((s) => s + 1);
-            else { setWelcomeStep(-1); update({ welcomed: true }); }
+            else setWelcomeStep(-1);
           }}
         >
           <div className="welcome-stack" key={welcomeStep}>

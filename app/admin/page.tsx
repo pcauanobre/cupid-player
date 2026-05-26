@@ -5,8 +5,6 @@ import { signOut } from 'next-auth/react';
 import PlayerFrame from '@/components/PlayerFrame';
 import PlaylistPicker from '@/components/PlaylistPicker';
 import QueueList from '@/components/QueueList';
-import HeartBeat from '@/components/HeartBeat';
-import PhotoGallery from '@/components/PhotoGallery';
 import DebugPanel from '@/components/DebugPanel';
 import useRoomState from '@/hooks/useRoomState';
 import useRoomCommands from '@/hooks/useRoomCommands';
@@ -52,7 +50,6 @@ export default function AdminPage() {
   const [showPicker, setShowPicker] = useState(false);
   const [tapToStart, setTapToStart] = useState(true);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [showGallery, setShowGallery] = useState(false);
   const { handleTap: titleTap } = useDebugMode();
 
   const player = useYouTubeIframePlayer({
@@ -192,8 +189,6 @@ export default function AdminPage() {
           </>
         }
       />
-      <HeartBeat onClick={() => setShowGallery(true)} />
-      <PhotoGallery open={showGallery} onClose={() => setShowGallery(false)} skipWelcome />
       <DebugPanel />
       {showExitConfirm && (
         <div className="exit-modal-backdrop" onClick={() => setShowExitConfirm(false)}>
