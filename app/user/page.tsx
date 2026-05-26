@@ -74,16 +74,21 @@ export default function UserPage() {
     optimisticTimer.current = setTimeout(() => setOptimistic({}), 4000);
   }, []);
 
-  // Once the server-confirmed state matches the optimistic guess, drop it
+  // Once the server-confirmed state matches the optimistic guess, drop it.
+  // For currentTime we need a tolerance because admin's iframe tick won't
+  // report back the exact float we sent — typically a few hundred ms off
+  // depending on the YT player.
   useEffect(() => {
     if (!optimistic || Object.keys(optimistic).length === 0) return;
     const matchPlay = optimistic.isPlaying === undefined || optimistic.isPlaying === state.isPlaying;
     const matchIndex = optimistic.index === undefined || optimistic.index === state.index;
-    if (matchPlay && matchIndex) {
+    const matchTime = optimistic.currentTime === undefined
+      || Math.abs(state.currentTime - optimistic.currentTime) < 2;
+    if (matchPlay && matchIndex && matchTime) {
       setOptimistic({});
       if (optimisticTimer.current) clearTimeout(optimisticTimer.current);
     }
-  }, [state.isPlaying, state.index, optimistic]);
+  }, [state.isPlaying, state.index, state.currentTime, optimistic]);
 
   const effIndex = optimistic.index ?? state.index;
   const effIsPlaying = optimistic.isPlaying ?? state.isPlaying;
