@@ -279,21 +279,12 @@ export default function useYouTubeIframePlayer({
     const pusher = getPusherClient();
     const channel = pusher.subscribe(ADMIN_CHANNEL);
 
+    // skip / prev are NOT handled here on purpose. The server already
+    // advanced state.index when it processed the user's command and
+    // broadcast the new meta — the state-driven useEffect above sees the
+    // new index and calls loadVideoById once. Reacting to cmd:skip here
+    // would send a second trackChanged and skip twice.
     const handlers: Record<string, (data: any) => void> = {
-      'cmd:skip': () => {
-        const cur = stateRef.current;
-        if (cur.queue.length > 0) {
-          const nextIdx = (cur.index + 1) % cur.queue.length;
-          sendCommand({ type: 'trackChanged', index: nextIdx });
-        }
-      },
-      'cmd:prev': () => {
-        const cur = stateRef.current;
-        if (cur.queue.length > 0) {
-          const nextIdx = (cur.index - 1 + cur.queue.length) % cur.queue.length;
-          sendCommand({ type: 'trackChanged', index: nextIdx });
-        }
-      },
       'cmd:playpause': (data) => {
         try {
           const p = playerRef.current;
