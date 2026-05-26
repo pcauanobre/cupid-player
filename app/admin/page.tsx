@@ -12,6 +12,7 @@ import useRoomState from '@/hooks/useRoomState';
 import useRoomCommands from '@/hooks/useRoomCommands';
 import useYouTubeIframePlayer from '@/hooks/useYouTubeIframePlayer';
 import useDebugMode from '@/hooks/useDebugMode';
+import useTransition from '@/hooks/useTransition';
 import type { Track } from '@/lib/room';
 
 function useSearch(send: ReturnType<typeof useRoomCommands>['send']) {
@@ -53,6 +54,7 @@ export default function AdminPage() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const { handleTap: titleTap } = useDebugMode();
+  const exitConfirmTransition = useTransition(showExitConfirm);
 
   const player = useYouTubeIframePlayer({
     state,
@@ -176,8 +178,11 @@ export default function AdminPage() {
       <HeartBeat onClick={() => setShowGallery(true)} />
       <PhotoGallery open={showGallery} onClose={() => setShowGallery(false)} />
       <DebugPanel />
-      {showExitConfirm && (
-        <div className="exit-modal-backdrop" onClick={() => setShowExitConfirm(false)}>
+      {exitConfirmTransition.shouldRender && (
+        <div
+          className={`exit-modal-backdrop phase-${exitConfirmTransition.phase}`}
+          onClick={() => setShowExitConfirm(false)}
+        >
           <div className="exit-modal" onClick={(e) => e.stopPropagation()}>
             <div className="exit-modal-title">sair do cupid player?</div>
             <div className="exit-modal-row">

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import useGallery from '@/hooks/useGallery';
 import useSettings from '@/hooks/useSettings';
+import useTransition from '@/hooks/useTransition';
 import { makeCollage } from '@/lib/collage';
 
 export default function PhotoGallery({
@@ -116,6 +117,7 @@ export default function PhotoGallery({
   const inWelcome = open && welcomeStep !== null && welcomeStep >= 0 && welcomeStep < totalSteps;
   const sheetOpen = open && welcomeStep === -1;
   const currentStep = welcomeStep ?? 0;
+  const welcomeTransition = useTransition(inWelcome);
 
   // Cascade slot entrance ~500ms after the sheet slides up
   useEffect(() => {
@@ -139,9 +141,9 @@ export default function PhotoGallery({
       />
 
       {/* 3-step centered welcome — just label + continuar over dark backdrop */}
-      {inWelcome && (
+      {welcomeTransition.shouldRender && (
         <div
-          className="welcome-overlay"
+          className={`welcome-overlay phase-${welcomeTransition.phase}`}
           onClick={() => {
             if (currentStep < totalSteps - 1) setWelcomeStep(currentStep + 1);
             else {

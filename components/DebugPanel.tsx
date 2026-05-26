@@ -3,12 +3,14 @@
 import useDebugMode from '@/hooks/useDebugMode';
 import useGallery from '@/hooks/useGallery';
 import useSettings, { SETTINGS_DEFAULTS } from '@/hooks/useSettings';
+import useTransition from '@/hooks/useTransition';
 import { makeTestColorBlob } from '@/lib/collage';
 
 export default function DebugPanel() {
   const { enabled, setEnabled } = useDebugMode();
   const { settings, update, reset } = useSettings();
   const { clearAll, save } = useGallery();
+  const transition = useTransition(enabled);
 
   const fillTestColors = async () => {
     const count = settings.slotCount;
@@ -18,10 +20,13 @@ export default function DebugPanel() {
     }
   };
 
-  if (!enabled) return null;
+  if (!transition.shouldRender) return null;
 
   return (
-    <div className="debug-backdrop" onClick={() => setEnabled(false)}>
+    <div
+      className={`debug-backdrop phase-${transition.phase}`}
+      onClick={() => setEnabled(false)}
+    >
       <div className="debug-panel" onClick={(e) => e.stopPropagation()}>
         <div className="debug-header">
           <span>debug · cupid</span>

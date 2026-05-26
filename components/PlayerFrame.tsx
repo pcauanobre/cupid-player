@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useTheme from '@/hooks/useTheme';
 import useSettings from '@/hooks/useSettings';
+import useTransition from '@/hooks/useTransition';
 import MarqueeText from './MarqueeText';
 import type { PlayerController, Role } from '@/lib/player-types';
 
@@ -68,6 +69,7 @@ export default function PlayerFrame({
     if (onShowSettingsChange) onShowSettingsChange(v);
     else setInternalShowSettings(v);
   };
+  const settingsTransition = useTransition(showSettings);
   const [dragging, setDragging] = useState(false);
   const [hoverProgress, setHoverProgress] = useState<number | null>(null);
   const [volumeHovered, setVolumeHovered] = useState(false);
@@ -378,8 +380,11 @@ export default function PlayerFrame({
       {onLeave && <div className="btn btn-leave" onClick={onLeave} title="leave" />}
       <div className="btn btn-settings" onClick={() => setShowSettings(!showSettings)} title="settings" />
 
-      {showSettings && typeof document !== 'undefined' && createPortal(
-        <div className={`settings-panel ${theme === 'blue' ? 'theme-blue' : ''}`} onClick={() => setShowSettings(false)}>
+      {settingsTransition.shouldRender && typeof document !== 'undefined' && createPortal(
+        <div
+          className={`settings-panel ${theme === 'blue' ? 'theme-blue' : ''} phase-${settingsTransition.phase}`}
+          onClick={() => setShowSettings(false)}
+        >
           <div className="settings-panel-inner" onClick={(e) => e.stopPropagation()}>
             <div className="settings-header">
               <div className="settings-title">settings</div>
