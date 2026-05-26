@@ -74,6 +74,8 @@ export default function PlayerFrame({
   const [hoverProgress, setHoverProgress] = useState<number | null>(null);
   const [volumeHovered, setVolumeHovered] = useState(false);
   const [volumeDragging, setVolumeDragging] = useState(false);
+  const [previewVolume, setPreviewVolume] = useState<number | null>(null);
+  const volumeZoneRef = useRef<HTMLDivElement>(null);
   const seekRef = useRef<HTMLDivElement>(null);
   const volumeBarRef = useRef<HTMLDivElement>(null);
   const prevTrackRef = useRef<string | null>(null);
@@ -153,19 +155,29 @@ export default function PlayerFrame({
     };
   }, [dragging, seek]);
 
-  // Volume drag (admin only)
+  // Volume gesture — press anywhere in the zone and drag up/down. Only
+  // commits the new volume on release; the iframe doesn't get spammed
+  // with intermediate values.
+  const computeVolumeFromY = (clientY: number) => {
+    const zone = volumeZoneRef.current;
+    if (!zone) return 0;
+    const rect = zone.getBoundingClientRect();
+    // Map the entire zone height to 0..1, top = louder.
+    const pct = Math.max(0, Math.min(1, 1 - (clientY - rect.top) / rect.height));
+    return pct;
+  };
   useEffect(() => {
     if (!volumeDragging) return;
     const onMove = (e: MouseEvent | TouchEvent) => {
-      if (!volumeBarRef.current) return;
-      const rect = volumeBarRef.current.getBoundingClientRect();
       const clientY = 'touches' in e ? e.touches[0]?.clientY ?? 0 : e.clientY;
-      const pct = Math.max(0, Math.min(1, 1 - (clientY - rect.top) / rect.height));
-      setVolume(pct);
+      setPreviewVolume(computeVolumeFromY(clientY));
     };
     const onUp = () => {
+      const finalVol = previewVolume;
       setVolumeDragging(false);
       setVolumeHovered(false);
+      setPreviewVolume(null);
+      if (finalVol !== null) setVolume(finalVol);
     };
     window.addEventListener('mousemove', onMove as EventListener);
     window.addEventListener('mouseup', onUp);
@@ -177,7 +189,8 @@ export default function PlayerFrame({
       window.removeEventListener('touchmove', onMove as EventListener);
       window.removeEventListener('touchend', onUp);
     };
-  }, [volumeDragging, setVolume]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [volumeDragging, previewVolume]);
 
   const starUrl = starHovered ? '/star_selected.png' : '/star.png';
   const showVolume = true;
@@ -328,51 +341,45 @@ export default function PlayerFrame({
       <div className="btn btn-play" onClick={togglePlay} />
       <div className="btn btn-next" onClick={next} />
 
-      {showVolume && (volumeHovered || volumeDragging) && (
-        <>
-          <img src={assets.volumeBarLow} className="layer layer-ui volume-bar-layer" alt="" draggable={false} />
-          <img
-            src={assets.volumeBarHigh}
-            className="layer layer-ui volume-bar-layer"
-            alt=""
-            draggable={false}
-            style={{
-              clipPath: `inset(${((1 - (muted ? 0 : volume)) * (420 - 338) / 512 + 338 / 512) * 100}% 0 0 0)`,
-            }}
-          />
-        </>
-      )}
+      {showVolume && (volumeHovered || volumeDragging) && (() => {
+        const displayVol = previewVolume ?? (muted ? 0 : volume);
+        return (
+          <>
+            <img src={assets.volumeBarLow} className="layer layer-ui volume-bar-layer" alt="" draggable={false} />
+            <img
+              src={assets.volumeBarHigh}
+              className="layer layer-ui volume-bar-layer"
+              alt=""
+              draggable={false}
+              style={{
+                clipPath: `inset(${((1 - displayVol) * (420 - 338) / 512 + 338 / 512) * 100}% 0 0 0)`,
+              }}
+            />
+          </>
+        );
+      })()}
 
       {showVolume && (
         <div
+          ref={volumeZoneRef}
           className={`volume-hover-zone ${(volumeHovered || volumeDragging) ? 'expanded' : ''}`}
           onMouseLeave={() => { if (!volumeDragging) setVolumeHovered(false); }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setVolumeDragging(true);
+            setVolumeHovered(true);
+            setPreviewVolume(computeVolumeFromY(e.clientY));
+          }}
+          onTouchStart={(e) => {
+            setVolumeDragging(true);
+            setVolumeHovered(true);
+            setPreviewVolume(computeVolumeFromY(e.touches[0].clientY));
+          }}
         >
           <div
             className="btn-volume-icon"
-            onClick={toggleMute}
             onMouseEnter={() => setVolumeHovered(true)}
-            onTouchStart={() => setVolumeHovered((v) => !v)}
           />
-          {(volumeHovered || volumeDragging) && (
-            <div
-              className="volume-bar-area"
-              ref={volumeBarRef}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setVolumeDragging(true);
-                const rect = e.currentTarget.getBoundingClientRect();
-                const pct = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
-                setVolume(pct);
-              }}
-              onTouchStart={(e) => {
-                setVolumeDragging(true);
-                const rect = e.currentTarget.getBoundingClientRect();
-                const pct = Math.max(0, Math.min(1, 1 - (e.touches[0].clientY - rect.top) / rect.height));
-                setVolume(pct);
-              }}
-            />
-          )}
         </div>
       )}
 

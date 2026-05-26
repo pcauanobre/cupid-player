@@ -43,7 +43,10 @@ function useSearch(
     const next = await send({ type: 'add', track: t });
     setResults([]);
     setQ('');
-    if (next && onAdded) onAdded(next.queue.length - 1);
+    // Server already inserted the track right after the current one and
+    // moved state.index there — just hand that index back to the page so
+    // it can flip the optimistic UI and close settings.
+    if (next && onAdded) onAdded(next.index);
   };
 
   return { q, setQ, results, loading, err, run, add };
@@ -167,10 +170,10 @@ export default function UserPage() {
     }, 320);
   }, [send]);
 
-  // Adding a track from search auto-plays it and closes the settings panel
+  // Adding a track from search auto-plays it (server already moved the
+  // queue index) and closes the settings panel. No need for scheduleNav.
   const search = useSearch(send, (newIndex) => {
     setOpt({ index: newIndex, currentTime: 0 });
-    scheduleNav(newIndex);
     setShowSettings(false);
   });
 

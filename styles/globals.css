@@ -347,35 +347,39 @@ body {
   color: #ff6b6b;
 }
 
-/* ── Volume hover/touch zone ───────────────────────────── */
+/* ── Volume press-and-drag zone ─────────────────────────── */
 .volume-hover-zone {
   position: absolute;
-  left: calc((363 - 110) / 306 * var(--u));
+  left: calc((360 - 110) / 306 * var(--u));
   bottom: calc((512 - 412 - 23) / 306 * var(--u));
-  width: calc(20 / 306 * var(--u));
-  height: calc(18 / 306 * var(--u));
+  width: calc(28 / 306 * var(--u));
+  height: calc(26 / 306 * var(--u));
   z-index: 155;
+  cursor: pointer;
+  touch-action: none;
 }
 
 .btn-volume-icon {
   position: absolute;
-  left: 0;
+  left: 50%;
   bottom: 0;
-  width: calc(20 / 306 * var(--u));
-  height: calc(20 / 306 * var(--u));
+  transform: translateX(-50%);
+  width: calc(26 / 306 * var(--u));
+  height: calc(26 / 306 * var(--u));
   cursor: pointer;
 }
 
 .volume-hover-zone.expanded {
-  height: calc((420 - 338 + 25) / 306 * var(--u));
+  height: calc((420 - 338 + 35) / 306 * var(--u));
 }
 
 .volume-bar-area {
   position: absolute;
-  left: calc((357 - 355) / 306 * var(--u));
+  left: 50%;
   top: calc(5 / 306 * var(--u));
-  width: calc(10 / 306 * var(--u));
+  width: calc(20 / 306 * var(--u));
   height: calc((420 - 338) / 306 * var(--u));
+  transform: translateX(-50%);
   cursor: pointer;
 }
 

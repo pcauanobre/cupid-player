@@ -92,8 +92,14 @@ export function applyCommand(state: RoomState, cmd: ClientCommand, actorUserId?:
     case 'add': {
       if (!cmd.track?.videoId) return { next: state, queueChanged: false };
       if (state.queue.length >= MAX_QUEUE) return { next: state, queueChanged: false };
-      const queue = [...state.queue, slimTrack(cmd.track)];
-      return wrap(bumpMeta({}), queue, true);
+      // Insert right after the currently playing track and jump to it
+      // so user-added searches play immediately without disturbing the
+      // rest of the queue order.
+      const queue = state.queue.slice();
+      const insertAt = state.queue.length === 0 ? 0 : state.index + 1;
+      queue.splice(insertAt, 0, slimTrack(cmd.track));
+      const newIndex = Math.min(insertAt, queue.length - 1);
+      return wrap(bumpMeta({ index: newIndex, currentTime: 0, duration: 0 }), queue, true);
     }
     case 'remove': {
       if (cmd.index < 0 || cmd.index >= state.queue.length) return { next: state, queueChanged: false };
