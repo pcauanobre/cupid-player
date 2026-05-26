@@ -307,6 +307,15 @@ export default function useYouTubeIframePlayer({
           // ignore
         }
       },
+      'cmd:setVolume': (data) => {
+        try {
+          const p = playerRef.current;
+          const v = Math.max(0, Math.min(1, data?.volume ?? 0));
+          p?.setVolume?.(Math.round(v * 100));
+          if (v > 0) { p?.unMute?.(); setMuted(false); }
+          setVolumeState(v);
+        } catch { /* ignore */ }
+      },
     };
 
     for (const [evt, fn] of Object.entries(handlers)) channel.bind(evt, fn);
@@ -365,7 +374,9 @@ export default function useYouTubeIframePlayer({
       // ignore
     }
     setVolumeState(pct);
-  }, [muted]);
+    // Broadcast so the user view shows the same level
+    sendCommand({ type: 'setVolume', volume: pct });
+  }, [muted, sendCommand]);
 
   const toggleMute = useCallback(() => {
     try {

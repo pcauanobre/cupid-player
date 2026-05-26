@@ -12,6 +12,7 @@ export type RoomState = {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  volume: number; // 0..1
   updatedAt: number;
   version: number;
 };
@@ -23,6 +24,7 @@ export const EMPTY_ROOM: RoomState = {
   isPlaying: false,
   currentTime: 0,
   duration: 0,
+  volume: 0.8,
   updatedAt: 0,
   version: 0,
 };
@@ -55,6 +57,7 @@ export type ClientCommand =
   | { type: 'prev' }
   | { type: 'playpause'; isPlaying?: boolean }
   | { type: 'seek'; fraction: number }
+  | { type: 'setVolume'; volume: number }
   | { type: 'reorder'; from: number; to: number }
   | { type: 'add'; track: Track }
   | { type: 'remove'; index: number }

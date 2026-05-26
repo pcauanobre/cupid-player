@@ -9,6 +9,7 @@ const EMPTY_META: RoomMeta = {
   isPlaying: false,
   currentTime: 0,
   duration: 0,
+  volume: 0.8,
   updatedAt: 0,
   version: 0,
 };
@@ -18,8 +19,12 @@ export async function getRoom(): Promise<RoomState> {
     kv.get<RoomMeta>(ROOM_KEY),
     kv.get<Track[]>(QUEUE_KEY),
   ]);
+  // Merge over EMPTY_META so fields added later (e.g. volume) get
+  // a default when reading old records that were written before the
+  // field existed.
   return {
-    ...(meta ?? EMPTY_META),
+    ...EMPTY_META,
+    ...(meta ?? {}),
     queue: queue ?? [],
   };
 }
@@ -58,6 +63,7 @@ export function applyCommand(state: RoomState, cmd: ClientCommand, actorUserId?:
     isPlaying: state.isPlaying,
     currentTime: state.currentTime,
     duration: state.duration,
+    volume: state.volume,
     updatedAt: now,
     version: state.version + 1,
     ...patch,
@@ -130,6 +136,10 @@ export function applyCommand(state: RoomState, cmd: ClientCommand, actorUserId?:
       const currentTime = state.duration > 0 ? fraction * state.duration : 0;
       return wrap(bumpMeta({ currentTime }), state.queue, false);
     }
+    case 'setVolume': {
+      const volume = Math.max(0, Math.min(1, cmd.volume));
+      return wrap(bumpMeta({ volume }), state.queue, false);
+    }
     case 'tick': {
       // Tick is poll-based and races with user-issued playpause commands.
       // Keep state.isPlaying as the authoritative value (it's flipped via
@@ -140,6 +150,7 @@ export function applyCommand(state: RoomState, cmd: ClientCommand, actorUserId?:
         isPlaying: state.isPlaying,
         currentTime: cmd.currentTime,
         duration: cmd.duration,
+        volume: state.volume,
         updatedAt: now,
         version: state.version + 1,
       };

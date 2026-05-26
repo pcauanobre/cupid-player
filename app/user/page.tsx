@@ -49,6 +49,7 @@ type Optimistic = {
   isPlaying?: boolean;
   index?: number;
   currentTime?: number;
+  volume?: number;
 };
 
 export default function UserPage() {
@@ -84,15 +85,18 @@ export default function UserPage() {
     const matchIndex = optimistic.index === undefined || optimistic.index === state.index;
     const matchTime = optimistic.currentTime === undefined
       || Math.abs(state.currentTime - optimistic.currentTime) < 2;
-    if (matchPlay && matchIndex && matchTime) {
+    const matchVol = optimistic.volume === undefined
+      || Math.abs(state.volume - optimistic.volume) < 0.02;
+    if (matchPlay && matchIndex && matchTime && matchVol) {
       setOptimistic({});
       if (optimisticTimer.current) clearTimeout(optimisticTimer.current);
     }
-  }, [state.isPlaying, state.index, state.currentTime, optimistic]);
+  }, [state.isPlaying, state.index, state.currentTime, state.volume, optimistic]);
 
   const effIndex = optimistic.index ?? state.index;
   const effIsPlaying = optimistic.isPlaying ?? state.isPlaying;
   const effCurrentTime = optimistic.currentTime ?? state.currentTime;
+  const effVolume = optimistic.volume ?? state.volume ?? 0.8;
 
   const player: PlayerController = useMemo(() => {
     const track = state.queue[effIndex] ?? PLACEHOLDER_TRACK;
@@ -104,7 +108,7 @@ export default function UserPage() {
       progress,
       duration: state.duration,
       currentTime: effCurrentTime,
-      volume: 1,
+      volume: effVolume,
       muted: false,
       togglePlay: () => {
         const next = !effIsPlaying;
@@ -127,10 +131,19 @@ export default function UserPage() {
         if (state.duration > 0) setOpt({ currentTime: f * state.duration });
         send({ type: 'seek', fraction: f });
       },
-      setVolume: () => { /* user volume affects nothing */ },
-      toggleMute: () => { /* no-op for user */ },
+      setVolume: (v) => {
+        const next = Math.max(0, Math.min(1, v));
+        setOpt({ volume: next });
+        send({ type: 'setVolume', volume: next });
+      },
+      toggleMute: () => {
+        // Mute toggles volume to 0 or back to the previous level
+        const next = effVolume > 0.01 ? 0 : 0.8;
+        setOpt({ volume: next });
+        send({ type: 'setVolume', volume: next });
+      },
     };
-  }, [state, effIndex, effIsPlaying, effCurrentTime, send, setOpt]);
+  }, [state, effIndex, effIsPlaying, effCurrentTime, effVolume, send, setOpt]);
 
   return (
     <>

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     // locally via the iframe. We route by the explicit role header so it
     // works even when admin and user pages share a browser session.
     const mirror: ClientCommand['type'][] = [
-      'skip', 'prev', 'playpause', 'seek',
+      'skip', 'prev', 'playpause', 'seek', 'setVolume',
       'reorder', 'add', 'remove', 'loadQueue',
       'trackChanged',
     ];

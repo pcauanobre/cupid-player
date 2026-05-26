@@ -32,16 +32,13 @@ export default function PhotoGallery({
   ];
   const totalSteps = steps.length;
 
-  // Welcome shows once per Chrome session (sessionStorage clears on tab
-  // close). After completion the user can reopen the gallery without
-  // seeing the intro again until they restart the browser.
+  // Welcome shows once per page load. Closing + reopening the gallery
+  // within the same page lifecycle skips the intro, but a full reload
+  // (or new tab) starts the 3 phrases over again.
+  const welcomedRef = useRef(false);
   useEffect(() => {
     if (!open) return;
-    let alreadyShown = false;
-    try {
-      alreadyShown = sessionStorage.getItem('cupid-welcomed') === '1';
-    } catch { /* ignore */ }
-    setWelcomeStep(alreadyShown ? -1 : 0);
+    setWelcomeStep(welcomedRef.current ? -1 : 0);
   }, [open]);
 
   useEffect(() => {
@@ -149,7 +146,7 @@ export default function PhotoGallery({
             if (currentStep < totalSteps - 1) setWelcomeStep(currentStep + 1);
             else {
               setWelcomeStep(-1);
-              try { sessionStorage.setItem('cupid-welcomed', '1'); } catch { /* ignore */ }
+              welcomedRef.current = true;
             }
           }}
         >

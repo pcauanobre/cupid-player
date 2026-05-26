@@ -165,7 +165,7 @@ export default function PlayerFrame({
   }, [volumeDragging, setVolume]);
 
   const starUrl = starHovered ? '/star_selected.png' : '/star.png';
-  const showVolume = role === 'admin';
+  const showVolume = true;
 
   return (
     <div className={`player ${theme === 'blue' ? 'theme-blue' : ''}`}>
