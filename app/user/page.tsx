@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signIn, useSession } from 'next-auth/react';
 import PlayerFrame from '@/components/PlayerFrame';
 import QueueList from '@/components/QueueList';
 import HeartBeat from '@/components/HeartBeat';
@@ -51,8 +52,10 @@ export default function UserPage() {
   const search = useSearch(send);
   const [showGallery, setShowGallery] = useState(false);
   const { settings } = useSettings();
+  const { status } = useSession();
   const router = useRouter();
   const waitingForAdmin = ready && state.queue.length === 0;
+  const signedIn = status === 'authenticated';
 
   const goAdmin = useCallback(() => router.push('/admin'), [router]);
   const titleTap = useTapSequence(goAdmin);
@@ -97,30 +100,45 @@ export default function UserPage() {
         <>
           <div className="settings-section">
             <div className="settings-label">add a track</div>
-            <input
-              className="settings-input"
-              placeholder="search youtube..."
-              value={search.q}
-              onChange={(e) => search.setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') search.run(); }}
-            />
-            <button className="settings-theme-btn" disabled={search.loading || !search.q.trim()} onClick={search.run}>
-              {search.loading ? 'searching...' : 'search'}
-            </button>
-            {search.err && <div className="settings-error">{search.err}</div>}
-            {search.results.length > 0 && (
-              <div className="settings-playlist-list">
-                {search.results.map((t) => (
-                  <button
-                    key={t.videoId}
-                    className="settings-playlist-item"
-                    onClick={() => search.add(t)}
-                    title={`${t.title} — ${t.artist}`}
-                  >
-                    {t.title}
-                  </button>
-                ))}
-              </div>
+            {signedIn ? (
+              <>
+                <input
+                  className="settings-input"
+                  placeholder="search youtube..."
+                  value={search.q}
+                  onChange={(e) => search.setQ(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') search.run(); }}
+                />
+                <button
+                  className="settings-theme-btn"
+                  disabled={search.loading || !search.q.trim()}
+                  onClick={search.run}
+                >
+                  {search.loading ? 'searching...' : 'search'}
+                </button>
+                {search.err && <div className="settings-error">{search.err}</div>}
+                {search.results.length > 0 && (
+                  <div className="settings-playlist-list">
+                    {search.results.map((t) => (
+                      <button
+                        key={t.videoId}
+                        className="settings-playlist-item"
+                        onClick={() => search.add(t)}
+                        title={`${t.title} — ${t.artist}`}
+                      >
+                        {t.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <button
+                className="settings-theme-btn"
+                onClick={() => signIn('google', { callbackUrl: '/user' })}
+              >
+                entrar pra adicionar músicas
+              </button>
             )}
           </div>
           <div className="settings-section">
