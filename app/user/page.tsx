@@ -14,7 +14,10 @@ import useRoomCommands from '@/hooks/useRoomCommands';
 import { PLACEHOLDER_TRACK, type Track } from '@/lib/room';
 import type { PlayerController } from '@/lib/player-types';
 
-function useSearch(send: ReturnType<typeof useRoomCommands>['send']) {
+function useSearch(
+  send: ReturnType<typeof useRoomCommands>['send'],
+  onAdded?: (newIndex: number) => void,
+) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,9 +40,10 @@ function useSearch(send: ReturnType<typeof useRoomCommands>['send']) {
   };
 
   const add = async (t: Track) => {
-    await send({ type: 'add', track: t });
+    const next = await send({ type: 'add', track: t });
     setResults([]);
     setQ('');
+    if (next && onAdded) onAdded(next.queue.length - 1);
   };
 
   return { q, setQ, results, loading, err, run, add };
@@ -55,27 +59,30 @@ type Optimistic = {
 export default function UserPage() {
   const { state, ready, refresh } = useRoomState();
   const { send } = useRoomCommands('user');
-  const search = useSearch(send);
   const [showGallery, setShowGallery] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const { settings } = useSettings();
   const router = useRouter();
 
-  // Admin presence: any fresh heartbeat flips us to "online" and we stay
-  // that way until the next 5-minute verification. If by then there's no
-  // recent heartbeat (>30s old) we go back to the waiting overlay.
-  const [isAdminOnline, setIsAdminOnline] = useState(false);
-  useEffect(() => {
-    if (state.updatedAt > 0 && Date.now() - state.updatedAt < 30_000) {
-      setIsAdminOnline(true);
+  // Admin presence: we only consider the admin "offline" if their
+  // cached YouTube token disappeared (sign-out or hard refresh failure).
+  // Heartbeats are noisy — being logged in but not currently on /admin
+  // shouldn't trigger the overlay.
+  const [adminSignedIn, setAdminSignedIn] = useState<boolean | null>(null);
+  const checkAdminStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin-status', { cache: 'no-store' });
+      const data = await res.json();
+      setAdminSignedIn(Boolean(data?.signedIn));
+    } catch {
+      // network blip — don't flip to "offline" just because of that
     }
-  }, [state.updatedAt]);
+  }, []);
   useEffect(() => {
-    const t = setInterval(() => {
-      const online = state.updatedAt > 0 && Date.now() - state.updatedAt < 30_000;
-      setIsAdminOnline(online);
-    }, 5 * 60 * 1000);
+    checkAdminStatus();
+    const t = setInterval(checkAdminStatus, 5 * 60 * 1000);
     return () => clearInterval(t);
-  }, [state.updatedAt]);
+  }, [checkAdminStatus]);
 
   // Safety net: re-pull /api/state every minute if our local state has
   // gone stale, in case a Pusher delivery slipped.
@@ -104,7 +111,7 @@ export default function UserPage() {
     };
   }, [refresh]);
 
-  const waitingForAdmin = ready && (!isAdminOnline || state.queue.length === 0);
+  const waitingForAdmin = ready && adminSignedIn === false;
 
   const goAdmin = useCallback(() => router.push('/admin'), [router]);
   const titleTap = useTapSequence(goAdmin);
@@ -159,6 +166,13 @@ export default function UserPage() {
       if (target !== null) send({ type: 'trackChanged', index: target });
     }, 320);
   }, [send]);
+
+  // Adding a track from search auto-plays it and closes the settings panel
+  const search = useSearch(send, (newIndex) => {
+    setOpt({ index: newIndex, currentTime: 0 });
+    scheduleNav(newIndex);
+    setShowSettings(false);
+  });
 
   const player: PlayerController = useMemo(() => {
     const track = state.queue[effIndex] ?? PLACEHOLDER_TRACK;
@@ -222,6 +236,8 @@ export default function UserPage() {
       player={player}
       role="user"
       onTitleTap={titleTap}
+      showSettings={showSettings}
+      onShowSettingsChange={setShowSettings}
       settingsSlot={
         <>
           <div className="settings-section">

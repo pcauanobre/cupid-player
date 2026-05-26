@@ -23,6 +23,8 @@ export default function PlayerFrame({
   playMode = 'normal',
   onCyclePlayMode,
   onTitleTap,
+  showSettings: controlledShowSettings,
+  onShowSettingsChange,
 }: {
   player: PlayerController;
   role: Role;
@@ -32,6 +34,8 @@ export default function PlayerFrame({
   playMode?: 'normal' | 'shuffle' | 'repeat';
   onCyclePlayMode?: () => void;
   onTitleTap?: () => void;
+  showSettings?: boolean;
+  onShowSettingsChange?: (open: boolean) => void;
 }) {
   const { theme, toggleTheme, assets } = useTheme();
   const { settings } = useSettings();
@@ -58,7 +62,12 @@ export default function PlayerFrame({
   const [swapping, setSwapping] = useState(false);
   const [needleLifted, setNeedleLifted] = useState(false);
   const [starHovered, setStarHovered] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [internalShowSettings, setInternalShowSettings] = useState(false);
+  const showSettings = controlledShowSettings ?? internalShowSettings;
+  const setShowSettings = (v: boolean) => {
+    if (onShowSettingsChange) onShowSettingsChange(v);
+    else setInternalShowSettings(v);
+  };
   const [dragging, setDragging] = useState(false);
   const [hoverProgress, setHoverProgress] = useState<number | null>(null);
   const [volumeHovered, setVolumeHovered] = useState(false);
@@ -367,7 +376,7 @@ export default function PlayerFrame({
 
 
       {onLeave && <div className="btn btn-leave" onClick={onLeave} title="leave" />}
-      <div className="btn btn-settings" onClick={() => setShowSettings((v) => !v)} title="settings" />
+      <div className="btn btn-settings" onClick={() => setShowSettings(!showSettings)} title="settings" />
 
       {showSettings && typeof document !== 'undefined' && createPortal(
         <div className={`settings-panel ${theme === 'blue' ? 'theme-blue' : ''}`} onClick={() => setShowSettings(false)}>
