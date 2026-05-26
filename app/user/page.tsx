@@ -59,7 +59,16 @@ export default function UserPage() {
   const [showGallery, setShowGallery] = useState(false);
   const { settings } = useSettings();
   const router = useRouter();
-  const waitingForAdmin = ready && state.queue.length === 0;
+  // Heartbeat-based presence: admin's iframe pings state.updatedAt every
+  // ~2s while it's running. If we haven't seen one in 10s, treat admin
+  // as offline and gate the player behind the waiting overlay.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 3000);
+    return () => clearInterval(t);
+  }, []);
+  const adminOnline = state.updatedAt > 0 && (now - state.updatedAt) < 10_000;
+  const waitingForAdmin = ready && (!adminOnline || state.queue.length === 0);
 
   const goAdmin = useCallback(() => router.push('/admin'), [router]);
   const titleTap = useTapSequence(goAdmin);
@@ -151,7 +160,7 @@ export default function UserPage() {
       <div className="waiting-overlay">
         <div className="waiting-stack">
           <div className="waiting-text">
-            aguarde o {settings.adminName} colocar a playlist :)<span className="waiting-dots" aria-hidden="true" />
+            espere o {settings.adminName} adicionar a playlist<span className="waiting-dots" aria-hidden="true" />
           </div>
         </div>
       </div>
