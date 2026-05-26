@@ -30,10 +30,16 @@ export default function PhotoGallery({
   ];
   const totalSteps = steps.length;
 
-  // Welcome always shows each time the gallery opens — the 3 phrases are
-  // part of the /user experience by design.
+  // Welcome shows once per Chrome session (sessionStorage clears on tab
+  // close). After completion the user can reopen the gallery without
+  // seeing the intro again until they restart the browser.
   useEffect(() => {
-    if (open) setWelcomeStep(0);
+    if (!open) return;
+    let alreadyShown = false;
+    try {
+      alreadyShown = sessionStorage.getItem('cupid-welcomed') === '1';
+    } catch { /* ignore */ }
+    setWelcomeStep(alreadyShown ? -1 : 0);
   }, [open]);
 
   useEffect(() => {
@@ -138,7 +144,10 @@ export default function PhotoGallery({
           className="welcome-overlay"
           onClick={() => {
             if (welcomeStep < totalSteps - 1) setWelcomeStep((s) => s + 1);
-            else setWelcomeStep(-1);
+            else {
+              setWelcomeStep(-1);
+              try { sessionStorage.setItem('cupid-welcomed', '1'); } catch { /* ignore */ }
+            }
           }}
         >
           <div className="welcome-stack" key={welcomeStep}>

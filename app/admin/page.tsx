@@ -5,6 +5,8 @@ import { signOut } from 'next-auth/react';
 import PlayerFrame from '@/components/PlayerFrame';
 import PlaylistPicker from '@/components/PlaylistPicker';
 import QueueList from '@/components/QueueList';
+import HeartBeat from '@/components/HeartBeat';
+import PhotoGallery from '@/components/PhotoGallery';
 import DebugPanel from '@/components/DebugPanel';
 import useRoomState from '@/hooks/useRoomState';
 import useRoomCommands from '@/hooks/useRoomCommands';
@@ -48,8 +50,8 @@ export default function AdminPage() {
   const { send } = useRoomCommands('admin');
   const search = useSearch(send);
   const [showPicker, setShowPicker] = useState(false);
-  const [tapToStart, setTapToStart] = useState(true);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const { handleTap: titleTap } = useDebugMode();
 
   const player = useYouTubeIframePlayer({
@@ -99,24 +101,6 @@ export default function AdminPage() {
           zIndex: -1,
         }}
       />
-      {tapToStart && state.queue.length > 0 && (
-        <button
-          onClick={() => { setTapToStart(false); player.togglePlay(); }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            background: 'rgba(0, 0, 0, 0.7)',
-            color: '#F6CFC8',
-            fontFamily: "'Rainyhearts', monospace",
-            fontSize: '1.4rem',
-            border: 'none',
-            cursor: 'pointer',
-          }}
-        >
-          tap to start
-        </button>
-      )}
       <PlayerFrame
         player={player}
         role="admin"
@@ -189,6 +173,8 @@ export default function AdminPage() {
           </>
         }
       />
+      <HeartBeat onClick={() => setShowGallery(true)} />
+      <PhotoGallery open={showGallery} onClose={() => setShowGallery(false)} />
       <DebugPanel />
       {showExitConfirm && (
         <div className="exit-modal-backdrop" onClick={() => setShowExitConfirm(false)}>
