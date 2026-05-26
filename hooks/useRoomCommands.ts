@@ -3,12 +3,17 @@
 import { useCallback } from 'react';
 import type { ClientCommand, RoomState } from '@/lib/room';
 
-export default function useRoomCommands() {
+type Role = 'admin' | 'user';
+
+export default function useRoomCommands(role: Role = 'user') {
   const send = useCallback(async (cmd: ClientCommand): Promise<RoomState | null> => {
     try {
       const res = await fetch('/api/cmd', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cupid-role': role,
+        },
         body: JSON.stringify(cmd),
       });
       if (!res.ok) {
@@ -22,6 +27,6 @@ export default function useRoomCommands() {
       console.error('cmd network error:', err);
       return null;
     }
-  }, []);
+  }, [role]);
   return { send };
 }

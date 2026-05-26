@@ -53,7 +53,7 @@ type Optimistic = {
 
 export default function UserPage() {
   const { state, ready } = useRoomState();
-  const { send } = useRoomCommands();
+  const { send } = useRoomCommands('user');
   const search = useSearch(send);
   const [showGallery, setShowGallery] = useState(false);
   const { settings } = useSettings();

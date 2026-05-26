@@ -47,7 +47,7 @@ function useSearch(send: ReturnType<typeof useRoomCommands>['send']) {
 
 export default function AdminPage() {
   const { state, ready } = useRoomState();
-  const { send } = useRoomCommands();
+  const { send } = useRoomCommands('admin');
   const search = useSearch(send);
   const [showPicker, setShowPicker] = useState(false);
   const [tapToStart, setTapToStart] = useState(true);

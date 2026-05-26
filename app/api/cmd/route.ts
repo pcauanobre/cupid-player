@@ -15,6 +15,11 @@ const SIGNIN_REQUIRED: ClientCommand['type'][] = ['loadQueue'];
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const isAdmin = Boolean(session?.user?.isAdmin);
+  // Use the explicit role header — same Google session can be active on
+  // both /admin and /user simultaneously, so we can't infer the role from
+  // the session alone.
+  const role = req.headers.get('x-cupid-role');
+  const isUserRoleRequest = role === 'user';
 
   let cmd: ClientCommand;
   try {
@@ -40,21 +45,19 @@ export async function POST(req: NextRequest) {
     await persist(next, queueChanged);
 
     const pusher = getPusherServer();
-
-    // Tick updates: send a lightweight progress patch on the room channel.
-    // Everyone gets the snapshot in `state:update`.
     await pusher.trigger(ROOM_CHANNEL, 'state:update', { state: next });
 
     // Mirror user-initiated commands to admin's private channel so the
-    // YouTube IFrame on admin's device can react in real time (skip / prev
-    // / playpause / seek / track-change). Admin's own commands don't need
-    // mirroring — they already executed locally.
+    // YouTube IFrame on admin's device can react in real time.
+    // Admin's own commands don't need mirroring — they already executed
+    // locally via the iframe. We route by the explicit role header so it
+    // works even when admin and user pages share a browser session.
     const mirror: ClientCommand['type'][] = [
       'skip', 'prev', 'playpause', 'seek',
       'reorder', 'add', 'remove', 'loadQueue',
       'trackChanged',
     ];
-    if (mirror.includes(cmd.type) && !isAdmin) {
+    if (mirror.includes(cmd.type) && isUserRoleRequest) {
       await pusher.trigger(ADMIN_CHANNEL, `cmd:${cmd.type}`, cmd);
     }
 
