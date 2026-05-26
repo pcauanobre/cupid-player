@@ -182,7 +182,10 @@ export default function PhotoGallery({
                     <img src={url} alt={`photo ${i + 1}`} />
                     <span
                       className="gallery-slot-x"
-                      onClick={(e) => { e.stopPropagation(); clear(i); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm('apagar essa foto?')) clear(i);
+                      }}
                       role="button"
                       aria-label="remove photo"
                     >

@@ -31,7 +31,10 @@ html, body {
   background: var(--bg);
   -webkit-font-smoothing: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  /* pan-x + pan-y allows scroll but blocks pinch zoom */
+  touch-action: pan-x pan-y;
+  /* block pull-to-refresh / overscroll bounce reload */
+  overscroll-behavior: none;
 }
 
 body {
@@ -39,8 +42,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding-top: 1vh;
-  gap: 0.5rem;
+  padding-top: 0;
+  gap: 0.2rem;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -56,12 +59,14 @@ body {
    it so positions stay correct regardless of player size. */
 .player {
   position: relative;
-  --u: min(100vw, calc(100vh * 306 / 497), 500px);
+  /* shrink a little so the heart always fits below */
+  --u: min(92vw, calc(78vh * 306 / 497), 440px);
   width: var(--u);
   height: calc(var(--u) * 497 / 306);
   overflow: hidden;
   border-radius: calc(5 / 306 * var(--u));
   clip-path: inset(0 0 0 calc(3 / 306 * var(--u)));
+  flex-shrink: 0;
   --color-title: #78364F;
   --color-primary: #5a3a4a;
   --color-secondary: #8a6a7a;
@@ -760,11 +765,13 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.6rem;
+  gap: 0.2rem;
+  padding: 0.1rem 0.6rem;
+  margin-top: -0.3rem;
   font-family: 'Rainyhearts', monospace;
   color: var(--color-panel-text, #F6CFC8);
   -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
 
 .heart-svg {
