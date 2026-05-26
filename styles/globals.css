@@ -1245,7 +1245,8 @@ body {
   padding-top: 0.5rem;
 }
 
-/* ── Waiting-for-admin overlay (user page) ───────────── */
+/* ── Waiting-for-admin overlay (user page) ─────────────
+   Matches the 3-step welcome look: bare label on dark backdrop, no card. */
 .waiting-overlay {
   position: fixed;
   inset: 0;
@@ -1254,38 +1255,37 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.2rem;
+  padding: 2rem;
   font-family: 'Rainyhearts', monospace;
   text-align: center;
+  animation: welcome-fade-in 0.25s ease;
 }
 
-.waiting-card {
-  background: var(--color-primary, #5a3a4a);
-  border: 3px solid var(--color-panel-text, #F6CFC8);
-  border-radius: 12px;
-  padding: 1.5rem 1.8rem;
-  max-width: 320px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+.waiting-stack {
+  max-width: 28rem;
 }
 
-.waiting-emoji {
-  font-size: 2.2rem;
-  animation: heart-pulse 1.6s ease-in-out infinite;
+.waiting-text {
+  font-size: 1.6rem;
+  color: #F6CFC8;
+  line-height: 1.4;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 
-.waiting-title {
-  font-size: 1.15rem;
-  color: var(--color-panel-text);
-  line-height: 1.3;
+.waiting-dots::after {
+  content: '';
+  display: inline-block;
+  width: 2.5ch;
+  text-align: left;
+  animation: dots-loop 1.4s steps(4, end) infinite;
 }
 
-.waiting-sub {
-  font-size: 0.85rem;
-  color: var(--color-secondary);
-  line-height: 1.3;
+@keyframes dots-loop {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
+  100% { content: ''; }
 }
 
 /* ── Exit confirmation modal ─────────────────────────── */

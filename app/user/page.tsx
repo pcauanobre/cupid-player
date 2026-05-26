@@ -85,10 +85,10 @@ export default function UserPage() {
     <>
     {waitingForAdmin && (
       <div className="waiting-overlay">
-        <div className="waiting-card">
-          <div className="waiting-emoji">⌛</div>
-          <div className="waiting-title">espere o {settings.adminName} conectar a playlist!</div>
-          <div className="waiting-sub">assim que ele escolher, a fila aparece aqui</div>
+        <div className="waiting-stack">
+          <div className="waiting-text">
+            aguarde o {settings.adminName} colocar a playlist :)<span className="waiting-dots" aria-hidden="true" />
+          </div>
         </div>
       </div>
     )}
