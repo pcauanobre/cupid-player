@@ -283,6 +283,7 @@ export default function UserPage() {
               onSkipTo={(i) => {
                 setOpt({ index: i, currentTime: 0 });
                 scheduleNav(i);
+                setShowSettings(false);
               }}
               onRemove={(i) => send({ type: 'remove', index: i })}
               onReorder={(from, to) => send({ type: 'reorder', from, to })}

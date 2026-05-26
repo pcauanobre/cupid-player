@@ -170,7 +170,7 @@ export default function AdminPage() {
                     queue={state.queue}
                     index={state.index}
                     canModify
-                    onSkipTo={(i) => send({ type: 'trackChanged', index: i })}
+                    onSkipTo={(i) => { send({ type: 'trackChanged', index: i }); setShowSettings(false); }}
                     onRemove={(i) => send({ type: 'remove', index: i })}
                     onReorder={(from, to) => send({ type: 'reorder', from, to })}
                   />
