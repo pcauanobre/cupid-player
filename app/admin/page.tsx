@@ -15,7 +15,10 @@ import useDebugMode from '@/hooks/useDebugMode';
 import useTransition from '@/hooks/useTransition';
 import type { Track } from '@/lib/room';
 
-function useSearch(send: ReturnType<typeof useRoomCommands>['send']) {
+function useSearch(
+  send: ReturnType<typeof useRoomCommands>['send'],
+  onAdded?: (newIndex: number) => void,
+) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,9 +41,10 @@ function useSearch(send: ReturnType<typeof useRoomCommands>['send']) {
   };
 
   const add = async (t: Track) => {
-    await send({ type: 'add', track: t });
+    const next = await send({ type: 'add', track: t });
     setResults([]);
     setQ('');
+    if (next && onAdded) onAdded(next.index);
   };
 
   return { q, setQ, results, loading, err, run, add };
@@ -49,10 +53,14 @@ function useSearch(send: ReturnType<typeof useRoomCommands>['send']) {
 export default function AdminPage() {
   const { state, ready } = useRoomState();
   const { send } = useRoomCommands('admin');
-  const search = useSearch(send);
   const [showPicker, setShowPicker] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const search = useSearch(send, () => {
+    setShowSettings(false);
+    setShowPicker(false);
+  });
   const { handleTap: titleTap } = useDebugMode();
   const exitConfirmTransition = useTransition(showExitConfirm);
 
@@ -107,6 +115,8 @@ export default function AdminPage() {
         player={player}
         role="admin"
         onTitleTap={titleTap}
+        showSettings={showSettings}
+        onShowSettingsChange={setShowSettings}
         onOpenPlaylist={() => setShowPicker((v) => !v)}
         onLeave={() => setShowExitConfirm(true)}
         settingsSlot={
