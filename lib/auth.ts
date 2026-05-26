@@ -162,6 +162,12 @@ export const authOptions: NextAuthOptions = {
       session.error = token.error;
       session.user.id = token.userId ?? token.sub;
       session.user.isAdmin = isAdminEmail(session.user.email);
+      // Re-cache the admin token on every session check so anonymous /user
+      // search keeps working even when the admin signed in before the
+      // cache logic existed (or KV was cleared).
+      if (session.user.isAdmin && token.accessToken && token.accessTokenExpires) {
+        await cacheAdminToken(token.accessToken, token.refreshToken, token.accessTokenExpires);
+      }
       return session;
     },
   },

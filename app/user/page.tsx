@@ -102,8 +102,9 @@ export default function UserPage() {
       volume: 1,
       muted: false,
       togglePlay: () => {
-        setOpt({ isPlaying: !effIsPlaying });
-        send({ type: 'playpause' });
+        const next = !effIsPlaying;
+        setOpt({ isPlaying: next });
+        send({ type: 'playpause', isPlaying: next });
       },
       next: () => {
         if (state.queue.length === 0) return;

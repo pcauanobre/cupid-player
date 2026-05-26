@@ -5,7 +5,15 @@ import useGallery from '@/hooks/useGallery';
 import useSettings from '@/hooks/useSettings';
 import { makeCollage } from '@/lib/collage';
 
-export default function PhotoGallery({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function PhotoGallery({
+  open,
+  onClose,
+  skipWelcome = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  skipWelcome?: boolean;
+}) {
   const { urls, save, clear } = useGallery();
   const { settings, update } = useSettings();
   const slotCount = Math.max(1, Math.min(30, settings.slotCount));
@@ -24,10 +32,11 @@ export default function PhotoGallery({ open, onClose }: { open: boolean; onClose
   ];
   const totalSteps = steps.length;
 
-  // On open: show welcome only if user hasn't been welcomed yet
+  // On open: show welcome only if user hasn't been welcomed yet.
+  // Admin is forced to skip — they only see the gallery grid.
   useEffect(() => {
-    if (open) setWelcomeStep(settings.welcomed ? -1 : 0);
-  }, [open, settings.welcomed]);
+    if (open) setWelcomeStep(skipWelcome || settings.welcomed ? -1 : 0);
+  }, [open, settings.welcomed, skipWelcome]);
 
   useEffect(() => {
     if (!open) return;

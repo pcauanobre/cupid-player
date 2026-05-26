@@ -184,7 +184,7 @@ export default function AdminPage() {
         }
       />
       <HeartBeat onClick={() => setShowGallery(true)} />
-      <PhotoGallery open={showGallery} onClose={() => setShowGallery(false)} />
+      <PhotoGallery open={showGallery} onClose={() => setShowGallery(false)} skipWelcome />
       <DebugPanel />
       {showExitConfirm && (
         <div className="exit-modal-backdrop" onClick={() => setShowExitConfirm(false)}>
