@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PlayerFrame from '@/components/PlayerFrame';
 import QueueList from '@/components/QueueList';
@@ -45,6 +45,12 @@ function useSearch(send: ReturnType<typeof useRoomCommands>['send']) {
   return { q, setQ, results, loading, err, run, add };
 }
 
+type Optimistic = {
+  isPlaying?: boolean;
+  index?: number;
+  currentTime?: number;
+};
+
 export default function UserPage() {
   const { state, ready } = useRoomState();
   const { send } = useRoomCommands();
@@ -57,26 +63,68 @@ export default function UserPage() {
   const goAdmin = useCallback(() => router.push('/admin'), [router]);
   const titleTap = useTapSequence(goAdmin);
 
+  // Optimistic overlay so the UI flips instantly on click,
+  // before the round-trip to the server confirms the change.
+  const [optimistic, setOptimistic] = useState<Optimistic>({});
+  const optimisticTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setOpt = useCallback((patch: Optimistic) => {
+    setOptimistic((prev) => ({ ...prev, ...patch }));
+    if (optimisticTimer.current) clearTimeout(optimisticTimer.current);
+    // Safety net: if the server never confirms, clear after 4s
+    optimisticTimer.current = setTimeout(() => setOptimistic({}), 4000);
+  }, []);
+
+  // Once the server-confirmed state matches the optimistic guess, drop it
+  useEffect(() => {
+    if (!optimistic || Object.keys(optimistic).length === 0) return;
+    const matchPlay = optimistic.isPlaying === undefined || optimistic.isPlaying === state.isPlaying;
+    const matchIndex = optimistic.index === undefined || optimistic.index === state.index;
+    if (matchPlay && matchIndex) {
+      setOptimistic({});
+      if (optimisticTimer.current) clearTimeout(optimisticTimer.current);
+    }
+  }, [state.isPlaying, state.index, optimistic]);
+
+  const effIndex = optimistic.index ?? state.index;
+  const effIsPlaying = optimistic.isPlaying ?? state.isPlaying;
+  const effCurrentTime = optimistic.currentTime ?? state.currentTime;
+
   const player: PlayerController = useMemo(() => {
-    const track = state.queue[state.index] ?? PLACEHOLDER_TRACK;
-    const progress = state.duration > 0 ? Math.max(0, Math.min(1, state.currentTime / state.duration)) : 0;
+    const track = state.queue[effIndex] ?? PLACEHOLDER_TRACK;
+    const progress = state.duration > 0 ? Math.max(0, Math.min(1, effCurrentTime / state.duration)) : 0;
     return {
       track,
-      trackIndex: state.index,
-      isPlaying: state.isPlaying,
+      trackIndex: effIndex,
+      isPlaying: effIsPlaying,
       progress,
       duration: state.duration,
-      currentTime: state.currentTime,
+      currentTime: effCurrentTime,
       volume: 1,
       muted: false,
-      togglePlay: () => { send({ type: 'playpause' }); },
-      next: () => { send({ type: 'skip' }); },
-      prev: () => { send({ type: 'prev' }); },
-      seek: (f) => { send({ type: 'seek', fraction: f }); },
+      togglePlay: () => {
+        setOpt({ isPlaying: !effIsPlaying });
+        send({ type: 'playpause' });
+      },
+      next: () => {
+        if (state.queue.length === 0) return;
+        const nextIdx = (effIndex + 1) % state.queue.length;
+        setOpt({ index: nextIdx, currentTime: 0 });
+        send({ type: 'skip' });
+      },
+      prev: () => {
+        if (state.queue.length === 0) return;
+        const nextIdx = (effIndex - 1 + state.queue.length) % state.queue.length;
+        setOpt({ index: nextIdx, currentTime: 0 });
+        send({ type: 'prev' });
+      },
+      seek: (f) => {
+        if (state.duration > 0) setOpt({ currentTime: f * state.duration });
+        send({ type: 'seek', fraction: f });
+      },
       setVolume: () => { /* user volume affects nothing */ },
       toggleMute: () => { /* no-op for user */ },
     };
-  }, [state, send]);
+  }, [state, effIndex, effIsPlaying, effCurrentTime, send, setOpt]);
 
   return (
     <>
@@ -130,9 +178,12 @@ export default function UserPage() {
           <div className="settings-section">
             <QueueList
               queue={state.queue}
-              index={state.index}
+              index={effIndex}
               canModify
-              onSkipTo={(i) => send({ type: 'trackChanged', index: i })}
+              onSkipTo={(i) => {
+                setOpt({ index: i, currentTime: 0 });
+                send({ type: 'trackChanged', index: i });
+              }}
               onRemove={(i) => send({ type: 'remove', index: i })}
               onReorder={(from, to) => send({ type: 'reorder', from, to })}
             />
