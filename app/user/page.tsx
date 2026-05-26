@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import PlayerFrame from '@/components/PlayerFrame';
 import QueueList from '@/components/QueueList';
 import HeartBeat from '@/components/HeartBeat';
 import PhotoGallery from '@/components/PhotoGallery';
 import DebugPanel from '@/components/DebugPanel';
 import useSettings from '@/hooks/useSettings';
+import useTapSequence from '@/hooks/useTapSequence';
 import useRoomState from '@/hooks/useRoomState';
 import useRoomCommands from '@/hooks/useRoomCommands';
 import { PLACEHOLDER_TRACK, type Track } from '@/lib/room';
@@ -49,7 +51,11 @@ export default function UserPage() {
   const search = useSearch(send);
   const [showGallery, setShowGallery] = useState(false);
   const { settings } = useSettings();
+  const router = useRouter();
   const waitingForAdmin = ready && state.queue.length === 0;
+
+  const goAdmin = useCallback(() => router.push('/admin'), [router]);
+  const titleTap = useTapSequence(goAdmin);
 
   const player: PlayerController = useMemo(() => {
     const track = state.queue[state.index] ?? PLACEHOLDER_TRACK;
@@ -86,6 +92,7 @@ export default function UserPage() {
     <PlayerFrame
       player={player}
       role="user"
+      onTitleTap={titleTap}
       settingsSlot={
         <>
           <div className="settings-section">

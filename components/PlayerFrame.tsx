@@ -4,7 +4,6 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useTheme from '@/hooks/useTheme';
 import useSettings from '@/hooks/useSettings';
-import useDebugMode from '@/hooks/useDebugMode';
 import MarqueeText from './MarqueeText';
 import type { PlayerController, Role } from '@/lib/player-types';
 
@@ -23,6 +22,7 @@ export default function PlayerFrame({
   onLeave,
   playMode = 'normal',
   onCyclePlayMode,
+  onTitleTap,
 }: {
   player: PlayerController;
   role: Role;
@@ -31,10 +31,10 @@ export default function PlayerFrame({
   onLeave?: () => void;
   playMode?: 'normal' | 'shuffle' | 'repeat';
   onCyclePlayMode?: () => void;
+  onTitleTap?: () => void;
 }) {
   const { theme, toggleTheme, assets } = useTheme();
   const { settings } = useSettings();
-  const { handleTap } = useDebugMode();
   const {
     track,
     isPlaying,
@@ -172,8 +172,8 @@ export default function PlayerFrame({
       <img src={assets.frame} className="layer" alt="" draggable={false} />
 
       <div
-        className="window-title window-title-tap"
-        onClick={handleTap}
+        className={`window-title ${onTitleTap ? 'window-title-tap' : ''}`}
+        onClick={onTitleTap}
       >
         {settings.title}
       </div>

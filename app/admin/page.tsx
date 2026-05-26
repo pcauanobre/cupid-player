@@ -11,6 +11,7 @@ import DebugPanel from '@/components/DebugPanel';
 import useRoomState from '@/hooks/useRoomState';
 import useRoomCommands from '@/hooks/useRoomCommands';
 import useYouTubeIframePlayer from '@/hooks/useYouTubeIframePlayer';
+import useDebugMode from '@/hooks/useDebugMode';
 import type { Track } from '@/lib/room';
 
 function useSearch(send: ReturnType<typeof useRoomCommands>['send']) {
@@ -52,6 +53,7 @@ export default function AdminPage() {
   const [tapToStart, setTapToStart] = useState(true);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const { handleTap: titleTap } = useDebugMode();
 
   const player = useYouTubeIframePlayer({
     state,
@@ -112,6 +114,7 @@ export default function AdminPage() {
       <PlayerFrame
         player={player}
         role="admin"
+        onTitleTap={titleTap}
         onOpenPlaylist={() => setShowPicker((v) => !v)}
         onLeave={() => setShowExitConfirm(true)}
         settingsSlot={
