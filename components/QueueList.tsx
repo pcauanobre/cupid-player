@@ -28,9 +28,18 @@ export default function QueueList({
   const [dragOver, setDragOver] = useState<number | null>(null);
   const [dragY, setDragY] = useState(0);
   const startYRef = useRef(0);
+  const startScrollTopRef = useRef(0);
   const lastClientYRef = useRef(0);
   const scrollSpeedRef = useRef(0);
   const rafRef = useRef<number | null>(null);
+
+  // Translate the dragged row so it stays glued to the pointer regardless
+  // of how much the container has scrolled since the drag started.
+  const computeDragY = (clientY: number) => {
+    const c = listRef.current;
+    const scrollDelta = c ? c.scrollTop - startScrollTopRef.current : 0;
+    return (clientY - startYRef.current) + scrollDelta;
+  };
 
   const stopScrollLoop = () => {
     if (rafRef.current !== null) {
@@ -84,7 +93,9 @@ export default function QueueList({
           return;
         }
         c.scrollTop += scrollSpeedRef.current;
-        // Re-evaluate drop target after scroll because items moved
+        // Re-evaluate drop target + keep the dragged row pinned to the
+        // pointer as the container scrolls beneath it.
+        setDragY(computeDragY(lastClientYRef.current));
         recomputeDragOver(lastClientYRef.current);
         rafRef.current = requestAnimationFrame(tick);
       };
@@ -106,6 +117,7 @@ export default function QueueList({
     setDragFrom(i);
     setDragOver(i);
     startYRef.current = e.clientY;
+    startScrollTopRef.current = listRef.current?.scrollTop ?? 0;
     lastClientYRef.current = e.clientY;
     setDragY(0);
   };
@@ -113,8 +125,7 @@ export default function QueueList({
   const onHandlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (dragFrom === null) return;
     lastClientYRef.current = e.clientY;
-    const delta = e.clientY - startYRef.current;
-    setDragY(delta);
+    setDragY(computeDragY(e.clientY));
     recomputeDragOver(e.clientY);
     updateEdgeScroll(e.clientY);
   };
