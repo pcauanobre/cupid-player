@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { EMPTY_ROOM, ROOM_CHANNEL, type RoomState } from '@/lib/room';
+import { EMPTY_ROOM, ROOM_CHANNEL, type RoomState, type Track } from '@/lib/room';
 import { getPusherClient } from '@/lib/pusher-client';
+
+type MetaUpdate = Omit<RoomState, 'queue'>;
 
 export default function useRoomState() {
   const [state, setState] = useState<RoomState>(EMPTY_ROOM);
@@ -31,17 +33,34 @@ export default function useRoomState() {
   useEffect(() => {
     const pusher = getPusherClient();
     const channel = pusher.subscribe(ROOM_CHANNEL);
-    const onUpdate = (data: { state: RoomState }) => {
-      if (data?.state) {
-        setState((prev) => (data.state.version >= prev.version ? data.state : prev));
-      }
+
+    // state:update carries meta-only (queue is omitted to stay under
+    // Pusher's ~10KB payload cap on big playlists). Keep the previous
+    // queue in place when merging.
+    const onUpdate = (data: { state: MetaUpdate & { queue?: Track[] } }) => {
+      if (!data?.state) return;
+      setState((prev) => {
+        if (data.state.version < prev.version) return prev;
+        return {
+          ...prev,
+          ...data.state,
+          queue: data.state.queue ?? prev.queue,
+        };
+      });
     };
+
+    // queue:invalidate is fired separately whenever the queue changed.
+    // Pull the fresh state (which includes the queue) via HTTP.
+    const onQueueInvalidate = () => { refresh(); };
+
     channel.bind('state:update', onUpdate);
+    channel.bind('queue:invalidate', onQueueInvalidate);
     return () => {
       channel.unbind('state:update', onUpdate);
+      channel.unbind('queue:invalidate', onQueueInvalidate);
       pusher.unsubscribe(ROOM_CHANNEL);
     };
-  }, []);
+  }, [refresh]);
 
   return { state, ready, error, refresh, setState };
 }

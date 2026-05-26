@@ -45,7 +45,14 @@ export async function POST(req: NextRequest) {
     await persist(next, queueChanged);
 
     const pusher = getPusherServer();
-    await pusher.trigger(ROOM_CHANNEL, 'state:update', { state: next });
+    // Pusher caps payloads at ~10KB. The queue alone can easily exceed
+    // that on big playlists, so broadcast meta-only and tell clients to
+    // refetch the queue separately when it changed.
+    const { queue: _omit, ...meta } = next;
+    await pusher.trigger(ROOM_CHANNEL, 'state:update', { state: meta });
+    if (queueChanged) {
+      await pusher.trigger(ROOM_CHANNEL, 'queue:invalidate', {});
+    }
 
     // Mirror user-initiated commands to admin's private channel so the
     // YouTube IFrame on admin's device can react in real time.
