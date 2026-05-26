@@ -42,15 +42,22 @@ export default function QueueList({
     if (dragFrom === null) return;
     const delta = e.clientY - startYRef.current;
     setDragY(delta);
-    // Determine which row the pointer is over
+
+    // Determine which row the pointer is over. We compare against the
+    // CENTER of each non-dragged item so movement past the midpoint
+    // commits the swap, even when dragging long distances.
     let target = dragFrom;
+    let bestDist = Infinity;
     for (let idx = 0; idx < queue.length; idx++) {
+      if (idx === dragFrom) continue; // skip the row being dragged
       const el = itemRefs.current[idx];
       if (!el) continue;
       const r = el.getBoundingClientRect();
-      if (e.clientY >= r.top && e.clientY <= r.bottom) {
+      const center = (r.top + r.bottom) / 2;
+      const dist = Math.abs(e.clientY - center);
+      if (dist < bestDist) {
+        bestDist = dist;
         target = idx;
-        break;
       }
     }
     setDragOver(target);

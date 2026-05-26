@@ -240,13 +240,6 @@ export default function PlayerFrame({
         />
       )}
 
-      <img
-        src={playMode === 'repeat' ? assets.repeatButton : assets.shuffleButton}
-        className="layer layer-ui"
-        alt=""
-        draggable={false}
-        style={{ opacity: playMode === 'normal' ? 0.4 : 0.8 }}
-      />
 
       {/* Settings/leave icons */}
       <img src={assets.settings} className="layer layer-ui settings-layer" alt="" draggable={false} />
@@ -366,9 +359,6 @@ export default function PlayerFrame({
         </div>
       )}
 
-      {onCyclePlayMode && (
-        <div className="btn btn-playmode" onClick={onCyclePlayMode} title={playMode} />
-      )}
 
       {onLeave && <div className="btn btn-leave" onClick={onLeave} title="leave" />}
       <div className="btn btn-settings" onClick={() => setShowSettings((v) => !v)} title="settings" />
