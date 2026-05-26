@@ -1269,14 +1269,18 @@ body {
 }
 
 .waiting-stack {
-  max-width: 28rem;
+  max-width: 100vw;
+  padding: 0 1rem;
 }
 
 .waiting-text {
-  font-size: 1.6rem;
+  font-size: clamp(0.85rem, 3.6vw, 1.4rem);
   color: #F6CFC8;
-  line-height: 1.4;
+  line-height: 1.2;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .waiting-dots::after {

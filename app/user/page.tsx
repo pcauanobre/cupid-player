@@ -160,7 +160,7 @@ export default function UserPage() {
       <div className="waiting-overlay">
         <div className="waiting-stack">
           <div className="waiting-text">
-            espere o {settings.adminName} adicionar a playlist<span className="waiting-dots" aria-hidden="true" />
+            oii, espera o {settings.adminName} adicionar a playlist!<span className="waiting-dots" aria-hidden="true" />
           </div>
         </div>
       </div>
