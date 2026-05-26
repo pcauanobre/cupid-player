@@ -106,6 +106,19 @@ export default function QueueList({
   // Cleanup on unmount
   useEffect(() => () => stopScrollLoop(), []);
 
+  // Bring the current track into view when the queue opens / changes.
+  // Skips the smooth scroll on the very first mount so it feels instant.
+  const didInitialScrollRef = useRef(false);
+  useEffect(() => {
+    const el = itemRefs.current[index];
+    if (!el) return;
+    el.scrollIntoView({
+      block: 'center',
+      behavior: didInitialScrollRef.current ? 'smooth' : 'auto',
+    });
+    didInitialScrollRef.current = true;
+  }, [index, queue.length]);
+
   if (queue.length === 0) {
     return <div className="settings-label">queue is empty</div>;
   }
