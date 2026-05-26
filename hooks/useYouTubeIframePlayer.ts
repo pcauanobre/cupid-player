@@ -99,7 +99,14 @@ export default function useYouTubeIframePlayer({
               sendCommand({ type: 'playpause', isPlaying: true });
             } else if (s === YT.PlayerState.PAUSED) {
               setIsPlaying(false);
-              sendCommand({ type: 'playpause', isPlaying: false });
+              // Don't propagate pauses that the browser triggered when the
+              // tab went to background — otherwise we'd persist isPlaying=false
+              // and the auto-resume on visibility return wouldn't fire.
+              const browserPaused = typeof document !== 'undefined'
+                && document.visibilityState !== 'visible';
+              if (!browserPaused) {
+                sendCommand({ type: 'playpause', isPlaying: false });
+              }
             } else if (s === YT.PlayerState.ENDED) {
               setIsPlaying(false);
               const cur = stateRef.current;
