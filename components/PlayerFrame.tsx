@@ -110,7 +110,8 @@ export default function PlayerFrame({
     }, 1100);
   }, [track.title, needleLifted]);
 
-  // Progress drag
+  // Progress drag — only previews while dragging, commits on release
+  const hoverProgressRef = useRef<number | null>(null);
   useEffect(() => {
     if (!dragging) return;
     const onMove = (e: MouseEvent | TouchEvent) => {
@@ -118,13 +119,16 @@ export default function PlayerFrame({
       const rect = seekRef.current.getBoundingClientRect();
       const clientX = 'touches' in e ? e.touches[0]?.clientX ?? 0 : e.clientX;
       const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      hoverProgressRef.current = pct;
       setHoverProgress(pct);
-      seek(pct);
     };
     const onUp = () => {
+      const final = hoverProgressRef.current;
       setDragging(false);
       setStarHovered(false);
       setHoverProgress(null);
+      hoverProgressRef.current = null;
+      if (final !== null) seek(final);
     };
     window.addEventListener('mousemove', onMove as EventListener);
     window.addEventListener('mouseup', onUp);
@@ -294,16 +298,18 @@ export default function PlayerFrame({
           setDragging(true);
           const rect = e.currentTarget.getBoundingClientRect();
           const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          hoverProgressRef.current = pct;
           setHoverProgress(pct);
-          seek(pct);
+          // commit only on release
         }}
         onTouchStart={(e) => {
           setDragging(true);
           setStarHovered(true);
           const rect = e.currentTarget.getBoundingClientRect();
           const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+          hoverProgressRef.current = pct;
           setHoverProgress(pct);
-          seek(pct);
+          // commit only on release
         }}
       />
 

@@ -67,6 +67,10 @@ export default function useYouTubeIframePlayer({
           playsinline: 1,
           rel: 0,
           modestbranding: 1,
+          // Don't auto-play on construction — we respect state.isPlaying
+          // and trigger playVideo manually so a refresh that lands on a
+          // paused room doesn't blast audio.
+          autoplay: 0,
         },
         events: {
           onReady: () => {
@@ -134,7 +138,9 @@ export default function useYouTubeIframePlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerId]);
 
-  // Track current video id in state — when room.index changes, load the new video.
+  // Track current video id in state — when room.index changes, load the
+  // new video. loadVideoById auto-plays; cueVideoById just buffers it.
+  // Respect state.isPlaying so refreshing into a paused room stays paused.
   useEffect(() => {
     if (!ready) return;
     const target = state.queue[state.index];
@@ -143,7 +149,11 @@ export default function useYouTubeIframePlayer({
     currentVideoIdRef.current = videoId;
     try {
       if (videoId) {
-        playerRef.current.loadVideoById(videoId);
+        if (stateRef.current.isPlaying) {
+          playerRef.current.loadVideoById(videoId);
+        } else {
+          playerRef.current.cueVideoById(videoId);
+        }
       } else {
         playerRef.current.stopVideo?.();
       }
@@ -151,6 +161,23 @@ export default function useYouTubeIframePlayer({
       // ignore
     }
   }, [ready, state.index, state.queue]);
+
+  // Keep iframe play/pause aligned with room state.isPlaying. Catches
+  // refresh cases where the iframe defaults to a different state than
+  // what the room expects.
+  useEffect(() => {
+    if (!ready) return;
+    try {
+      const p = playerRef.current;
+      const ytState = p?.getPlayerState?.();
+      const PLAYING = (window as any).YT?.PlayerState?.PLAYING;
+      if (state.isPlaying && ytState !== PLAYING) {
+        p?.playVideo?.();
+      } else if (!state.isPlaying && ytState === PLAYING) {
+        p?.pauseVideo?.();
+      }
+    } catch { /* ignore */ }
+  }, [ready, state.isPlaying]);
 
   // Media Session API — show lock-screen controls and keep audio alive
   // while the tab is backgrounded (where the platform allows it).
