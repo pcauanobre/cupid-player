@@ -16,7 +16,9 @@ export default function PhotoGallery({
   const { settings } = useSettings();
   const slotCount = Math.max(1, Math.min(30, settings.slotCount));
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
-  const [welcomeStep, setWelcomeStep] = useState<number>(-1); // 0..2 show welcome, -1 = sheet
+  // null = not decided yet (avoids a flash of the sheet before the
+  // session-storage check). 0..2 = welcome step. -1 = show sheet.
+  const [welcomeStep, setWelcomeStep] = useState<number | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [cascadeReady, setCascadeReady] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -114,8 +116,9 @@ export default function PhotoGallery({
   };
 
   const filled = urls.slice(0, slotCount).filter(Boolean).length;
-  const inWelcome = open && welcomeStep >= 0 && welcomeStep < totalSteps;
+  const inWelcome = open && welcomeStep !== null && welcomeStep >= 0 && welcomeStep < totalSteps;
   const sheetOpen = open && welcomeStep === -1;
+  const currentStep = welcomeStep ?? 0;
 
   // Cascade slot entrance ~500ms after the sheet slides up
   useEffect(() => {
@@ -143,17 +146,17 @@ export default function PhotoGallery({
         <div
           className="welcome-overlay"
           onClick={() => {
-            if (welcomeStep < totalSteps - 1) setWelcomeStep((s) => s + 1);
+            if (currentStep < totalSteps - 1) setWelcomeStep(currentStep + 1);
             else {
               setWelcomeStep(-1);
               try { sessionStorage.setItem('cupid-welcomed', '1'); } catch { /* ignore */ }
             }
           }}
         >
-          <div className="welcome-stack" key={welcomeStep}>
-            <div className="welcome-step-text">{steps[welcomeStep]}</div>
+          <div className="welcome-stack" key={currentStep}>
+            <div className="welcome-step-text">{steps[currentStep]}</div>
             <div className="welcome-continue">
-              {welcomeStep < totalSteps - 1 ? 'continuar' : 'vamos!'}
+              {currentStep < totalSteps - 1 ? 'continuar' : 'vamos!'}
             </div>
           </div>
         </div>
