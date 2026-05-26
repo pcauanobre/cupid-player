@@ -91,7 +91,16 @@ export default function AdminPage() {
     <>
       <div
         id="cupid-yt-player"
-        style={{ position: 'fixed', left: '-9999px', top: 0, width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+        style={{
+          position: 'fixed',
+          right: 0,
+          bottom: 0,
+          width: 1,
+          height: 1,
+          opacity: 0.01,
+          pointerEvents: 'none',
+          zIndex: -1,
+        }}
       />
       {tapToStart && state.queue.length > 0 && (
         <button

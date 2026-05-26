@@ -77,6 +77,17 @@ export default function useYouTubeIframePlayer({
             } catch {
               // ignore
             }
+            // Loosen the iframe's permission policy so Chrome/Android lets
+            // it keep producing audio when the tab is backgrounded.
+            try {
+              const iframe = p.getIframe?.() as HTMLIFrameElement | undefined;
+              if (iframe) {
+                iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+                iframe.setAttribute('playsinline', '1');
+              }
+            } catch {
+              // ignore
+            }
             currentVideoIdRef.current = initialTrack?.videoId ?? null;
           },
           onStateChange: (e: any) => {
@@ -185,6 +196,33 @@ export default function useYouTubeIframePlayer({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
+
+  // Auto-resume on visibility regain. Mobile Chrome often pauses the
+  // iframe when the tab is hidden; on coming back we ensure playback
+  // resumes if the room state still says we're playing.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      const cur = stateRef.current;
+      if (!cur.isPlaying) return;
+      try {
+        const p = playerRef.current;
+        const ytState = p?.getPlayerState?.();
+        const PLAYING = (window as any).YT?.PlayerState?.PLAYING;
+        if (ytState !== PLAYING) p?.playVideo?.();
+      } catch { /* ignore */ }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    // Also runs if the browser un-freezes a backgrounded tab
+    window.addEventListener('pageshow', onVis);
+    window.addEventListener('focus', onVis);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pageshow', onVis);
+      window.removeEventListener('focus', onVis);
+    };
+  }, []);
 
   // Mirror playback state to the OS so controls reflect the real state
   useEffect(() => {
